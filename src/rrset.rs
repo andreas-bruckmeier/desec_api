@@ -1,6 +1,7 @@
 use crate::{Client, Error};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 pub struct RrsetClient<'a> {
     pub(crate) client: &'a crate::Client,
@@ -13,23 +14,15 @@ impl<'a> Client {
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ResourceRecordSet {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub domain: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subname: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub created: String,
+    pub domain: String,
+    pub subname: String,
+    pub name: String,
     #[serde(rename = "type")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rrset_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub records: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ttl: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub touched: Option<String>,
+    pub rrset_type: String,
+    pub records: Vec<String>,
+    pub ttl: u64,
+    pub touched: String,
 }
 
 pub type ResourceRecordSetList = Vec<ResourceRecordSet>;
@@ -69,14 +62,12 @@ impl<'a> RrsetClient<'a> {
         records: Vec<String>,
         ttl: u64,
     ) -> Result<ResourceRecordSet, Error> {
-        let rrset = ResourceRecordSet {
-            domain: Some(domain.clone()),
-            subname: Some(subname),
-            rrset_type: Some(rrset_type),
-            records: Some(records),
-            ttl: Some(ttl),
-            ..ResourceRecordSet::default()
-        };
+        let rrset = json!({
+            "subname": subname,
+            "type": rrset_type,
+            "ttl": ttl,
+            "records": records
+        });
         match self
             .client
             .post(
@@ -147,12 +138,23 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
-    pub async fn update_rrset(
+    pub async fn patch_rrset_from(&self, rrset: &ResourceRecordSet) -> Result<Option<ResourceRecordSet>, Error> {
+        self.patch_rrset(
+            &rrset.domain,
+            &rrset.subname,
+            &rrset.rrset_type,
+            &rrset.records,
+            rrset.ttl
+        ).await
+    }
+
+    pub async fn patch_rrset(
         &self,
         domain: &str,
         subname: &str,
         rrset_type: &str,
-        patch: &ResourceRecordSet,
+        records: &Vec<String>,
+        ttl: u64,
     ) -> Result<Option<ResourceRecordSet>, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
         let subname = if subname.is_empty() { "@" } else { subname };
@@ -161,7 +163,12 @@ impl<'a> RrsetClient<'a> {
             .client
             .patch(
                 format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str(),
-                serde_json::to_string(patch)
+                serde_json::to_string(
+                    &json!({
+                        "ttl": ttl,
+                        "records": records
+                    })
+                )
                 .map_err(|error| Error::Serialize(error.to_string()))?,
             )
             .await

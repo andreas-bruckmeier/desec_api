@@ -1,9 +1,9 @@
 use reqwest::{ header, Response };
 use thiserror::Error;
 
-mod account;
-mod domain;
-mod rrset;
+pub mod account;
+pub mod domain;
+pub mod rrset;
 
 static API_URL: &str = "https://desec.io/api/v1";
 
@@ -26,7 +26,7 @@ pub enum Error {
     #[error("An error occurred while serializing a JSON value: {0}")]
     Serialize(String),
     #[error("Failed to create HTTP client: {0}")]
-    ClientBuilder(String),
+    ReqwestClientBuilder(String),
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl Client {
             .user_agent("rust-desec-client")
             .default_headers(headers)
             .build()
-            .map_err(|error| Error::ClientBuilder(error.to_string()))?;
+            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
         Ok(Client { client, api_url: API_URL.into(), token })
     }
 

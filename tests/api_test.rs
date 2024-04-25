@@ -68,8 +68,8 @@ async fn test_rrset() {
             .await;
 
         assert!(rrset.is_ok());
-        assert_eq!(rrset.as_ref().unwrap().domain.clone().unwrap(), domain);
-        assert_eq!(rrset.unwrap().records.unwrap(), records);
+        assert_eq!(rrset.as_ref().unwrap().domain.clone(), domain);
+        assert_eq!(rrset.unwrap().records, records);
 
         sleep(Duration::from_millis(1000)).await;
 
@@ -81,23 +81,23 @@ async fn test_rrset() {
         assert!(rrset.is_ok());
         let mut rrset = rrset.unwrap();
 
-        assert_eq!(rrset.domain.clone().unwrap(), domain);
-        assert_eq!(rrset.records.clone().unwrap(), records);
+        assert_eq!(rrset.domain.clone(), domain);
+        assert_eq!(rrset.records.clone(), records);
 
-        rrset.ttl = Some(3650);
+        rrset.ttl = 3650;
 
         std::thread::sleep(Duration::from_millis(1000));
 
         let rrset = client
             .rrset()
-            .update_rrset(&domain, &subname, &rrset_type, &rrset)
+            .patch_rrset_from(&rrset)
             .await;
 
         assert!(rrset.is_ok());
         let rrset = rrset.unwrap().unwrap();
 
-        assert_eq!(rrset.domain.clone().unwrap(), domain);
-        assert_eq!(rrset.ttl.clone().unwrap(), 3650);
+        assert_eq!(rrset.domain.clone(), domain);
+        assert_eq!(rrset.ttl.clone(), 3650);
 
         std::thread::sleep(Duration::from_millis(1000));
 

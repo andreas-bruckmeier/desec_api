@@ -14,37 +14,25 @@ impl<'a> Client {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Domain {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub keys: Option<Vec<DNSSECKeyInfo>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub minimum_ttl: Option<u16>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub published: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub touched: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub zonefile: Option<String>,
+    pub created: String,
+    pub keys: Vec<DNSSECKeyInfo>,
+    pub minimum_ttl: u16,
+    pub name: String,
+    pub published: String,
+    pub touched: String,
+    pub zonefile: String,
 }
 
 pub type DomainList = Vec<Domain>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DNSSECKeyInfo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dnskey: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ds: Option<Vec<String>>,
+    pub dnskey: String,
+    pub ds: Vec<String>,
     #[serde(rename = "flags")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub keyflags: Option<u16>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub keytype: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub managed: Option<bool>,
+    pub keyflags: u16,
+    pub keytype: String,
+    pub managed: bool,
 }
 
 impl<'a> DomainClient<'a> {

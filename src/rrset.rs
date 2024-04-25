@@ -3,11 +3,13 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+/// An asynchronous client to create, update or delete so-called Resource Record Sets (RRsets).
 pub struct RrsetClient<'a> {
     pub(crate) client: &'a crate::Client,
 }
 
 impl<'a> Client {
+    /// Returns a wrapping client for the Resource Record Sets (RRsets) API.
     pub fn rrset(&'a self) -> RrsetClient<'a> {
         RrsetClient { client: self }
     }
@@ -25,35 +27,43 @@ pub struct ResourceRecordSet {
     pub touched: String,
 }
 
-pub type ResourceRecordSetList = Vec<ResourceRecordSet>;
-
 // Helper to generate a rate limit error from the response
 async fn throttling_error(response: reqwest::Response) -> Error {
     match response.headers().get("retry-after") {
         Some(header) => match header.to_str() {
-            Ok(header) => {
-                Error::RateLimited(
-                    header.to_string(),
-                    response.text().await.unwrap_or_default()
-                )
-            },
-            Err(_) => {
-                Error::ApiError(
-                    response.status().into(),
-                    "Request got throttled with invalid retry-after header".to_string()
-                )
-            }
-        },
-        None => {
-            Error::ApiError(
+            Ok(header) => Error::RateLimited(
+                header.to_string(),
+                response.text().await.unwrap_or_default(),
+            ),
+            Err(_) => Error::ApiError(
                 response.status().into(),
-                "Request got throttled without retry-header".to_string()
-            )
-        }
+                "Request got throttled with invalid retry-after header".to_string(),
+            ),
+        },
+        None => Error::ApiError(
+            response.status().into(),
+            "Request got throttled without retry-header".to_string(),
+        ),
     }
 }
 
 impl<'a> RrsetClient<'a> {
+    /// Creates a new RRSet and returns the newly created [`ResourceRecordSet`][rrset].
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::ApiError`][error] In case the operation cannot be performed with the given parameters.
+    ///   This can happen, for instance, when there is a conflicting RRset with the same name and type, 
+    ///   when not all required fields were provided correctly (such as, when the type value was not provided in uppercase),
+    ///   or when the record content is semantically invalid (e.g. when you provide an unknown record type, 
+    ///   or an A value that is not an IPv4 address).
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    /// [rrset]: ./struct.ResourceRecordSet.html
     pub async fn create_rrset(
         &self,
         domain: String,
@@ -93,7 +103,17 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
-    pub async fn get_rrsets(&self, domain: &str) -> Result<ResourceRecordSetList, Error> {
+    /// Retrieves a list of all RRSets that you own in the given domain.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of desec_api::rrset::ResourceRecordSet objects
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn get_rrsets(&self, domain: &str) -> Result<Vec<ResourceRecordSet>, Error> {
         match self
             .client
             .get(format!("/domains/{domain}/rrsets/").as_str())
@@ -111,6 +131,17 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
+    /// Retrieves a specific RRSet.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::NotFound`][error] if the RRSet does not exist or does not belong to you
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
     pub async fn get_rrset(
         &self,
         domain: &str,
@@ -138,16 +169,49 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
-    pub async fn patch_rrset_from(&self, rrset: &ResourceRecordSet) -> Result<Option<ResourceRecordSet>, Error> {
+    /// Updates an existing RRSet based on the given RRSet.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::Serialize`][error] if the given RRSet cannot be serialized (is this even possible?)
+    /// - [`Error::RateLimited`][error] if you hit a rate limit by making to many requests
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn patch_rrset_from(
+        &self,
+        rrset: &ResourceRecordSet,
+    ) -> Result<Option<ResourceRecordSet>, Error> {
         self.patch_rrset(
             &rrset.domain,
             &rrset.subname,
             &rrset.rrset_type,
             &rrset.records,
-            rrset.ttl
-        ).await
+            rrset.ttl,
+        )
+        .await
     }
 
+    /// Updates an existing RRSet based on the given values.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::Serialize`][error] if the given RRSet cannot be serialized (is this even possible?)
+    /// - [`Error::RateLimited`][error] if you hit a rate limit by making to many requests
+    /// - [`Error::ApiError`][error] In case the operation cannot be performed with the given parameters.
+    ///   This can happen, for instance, when there is a conflicting RRset with the same name and type, 
+    ///   when not all required fields were provided correctly (such as, when the type value was not provided in uppercase),
+    ///   or when the record content is semantically invalid (e.g. when you provide an unknown record type, 
+    ///   or an A value that is not an IPv4 address).
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
     pub async fn patch_rrset(
         &self,
         domain: &str,
@@ -163,12 +227,10 @@ impl<'a> RrsetClient<'a> {
             .client
             .patch(
                 format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str(),
-                serde_json::to_string(
-                    &json!({
-                        "ttl": ttl,
-                        "records": records
-                    })
-                )
+                serde_json::to_string(&json!({
+                    "ttl": ttl,
+                    "records": records
+                }))
                 .map_err(|error| Error::Serialize(error.to_string()))?,
             )
             .await
@@ -183,10 +245,10 @@ impl<'a> RrsetClient<'a> {
             Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(None),
 
             // In case the operation cannot be performed with the given parameters,
-            // the API returns 400 Bad Request. This can happen, for instance, when there is 
-            // a conflicting RRset with the same name and type, when not all required fields 
+            // the API returns 400 Bad Request. This can happen, for instance, when there is
+            // a conflicting RRset with the same name and type, when not all required fields
             // were provided correctly (such as, when the type value was not provided in uppercase),
-            // or when the record content is semantically invalid 
+            // or when the record content is semantically invalid
             // (e.g. when you provide an unknown record type, or an A value that is not an IPv4 address).
             Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
                 response.status().into(),
@@ -195,7 +257,7 @@ impl<'a> RrsetClient<'a> {
             // Rate limit / API Request Throttling
             Ok(response) if response.status() == StatusCode::TOO_MANY_REQUESTS => {
                 Err(throttling_error(response).await)
-            },
+            }
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
@@ -204,6 +266,15 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
+    /// Deletes the specified RRSet.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
     pub async fn delete_rrset(
         &self,
         domain: &str,

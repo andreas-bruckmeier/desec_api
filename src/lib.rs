@@ -38,6 +38,14 @@ pub struct Client {
 
 impl Client {
 
+    /// Creates a new client using the given API token.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with [`Error::ReqwestClientBuilder`][error] if the underlying [`reqwest::ClientBuilder`][builder] fails to build a http client.
+    ///
+    /// [error]: enum.Error.html
+    /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
     pub fn new(token: String) -> Result<Self, Error> {
         let mut headers = header::HeaderMap::new();
         headers.insert(

@@ -1,7 +1,11 @@
 [package]
 name = "desec_api"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
+description = "Client library for the deSEC DNS API"
+license = "MIT"
+documentation = "https://docs.rs/desec_api"
+repository = "https://github.com/andreas-bruckmeier/desec_api"
 
 [dependencies]
 thiserror = "1.0"

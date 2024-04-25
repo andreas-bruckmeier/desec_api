@@ -1,5 +1,5 @@
-use tokio::time::{sleep, Duration};
 use desec_api::Client;
+use tokio::time::{sleep, Duration};
 
 fn read_apikey() -> Option<String> {
     std::env::var("DESEC_API_TOKEN").ok()
@@ -26,15 +26,17 @@ async fn test_account_info() {
 
 #[tokio::test]
 async fn test_missing_resssources() {
-    if let (Some(key), Some(domain)) = (read_apikey(), read_domain())
-    {
+    if let (Some(key), Some(domain)) = (read_apikey(), read_domain()) {
         let client = Client::new(key.clone()).unwrap();
 
         // Check missing rrset
-        let rrset = client.rrset().get_rrset(&domain, "non-existing-subname", "A").await;
+        let rrset = client
+            .rrset()
+            .get_rrset(&domain, "non-existing-subname", "A")
+            .await;
         match rrset {
             Err(desec_api::Error::NotFound) => (),
-            _ => panic!("Should yield desec_api::Error::NotFound")
+            _ => panic!("Should yield desec_api::Error::NotFound"),
         }
 
         sleep(Duration::from_millis(1000)).await;
@@ -43,7 +45,7 @@ async fn test_missing_resssources() {
         let rrset = client.domain().get_domain("non-existing-domain").await;
         match rrset {
             Err(desec_api::Error::NotFound) => (),
-            _ => panic!("Should yield desec_api::Error::NotFound")
+            _ => panic!("Should yield desec_api::Error::NotFound"),
         }
     }
 }
@@ -54,7 +56,7 @@ async fn test_rrset() {
     {
         let client = Client::new(key.clone()).unwrap();
         let rrset_type = String::from("A");
-        let records = vec![String::from("8.8.8.8")];
+        let records = [String::from("8.8.8.8")];
 
         let rrset = client
             .rrset()
@@ -62,7 +64,7 @@ async fn test_rrset() {
                 domain.clone(),
                 subname.clone(),
                 rrset_type.clone(),
-                records.clone(),
+                &records,
                 3600,
             )
             .await;
@@ -88,10 +90,7 @@ async fn test_rrset() {
 
         std::thread::sleep(Duration::from_millis(1000));
 
-        let rrset = client
-            .rrset()
-            .patch_rrset_from(&rrset)
-            .await;
+        let rrset = client.rrset().patch_rrset_from(&rrset).await;
 
         assert!(rrset.is_ok());
         let rrset = rrset.unwrap().unwrap();

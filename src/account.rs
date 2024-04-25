@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use reqwest::StatusCode;
 use crate::{Client, Error};
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
 
 /// An asynchronous client to work with the deSEC account API.
 pub struct AccountClient<'a> {

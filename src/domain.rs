@@ -16,7 +16,7 @@ impl<'a> Client {
 
 /// Representation of a deSEC [`domain`][reference].
 ///
-/// [reference]: https://desec.readthedocs.io/en/latest/dns/domains.html#domain-field-reference 
+/// [reference]: https://desec.readthedocs.io/en/latest/dns/domains.html#domain-field-reference
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Domain {
     pub created: String,
@@ -30,7 +30,7 @@ pub struct Domain {
 
 /// Representation of a deSEC [`DNSSEC`][reference] key.
 ///
-/// [reference]: https://desec.readthedocs.io/en/latest/dns/domains.html#domain-field-reference 
+/// [reference]: https://desec.readthedocs.io/en/latest/dns/domains.html#domain-field-reference
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DNSSECKeyInfo {
     pub dnskey: String,
@@ -48,7 +48,7 @@ impl<'a> DomainClient<'a> {
     ///
     /// This method fails with:
     /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::ApiError`][error] This can happen when the request payload was malformed, or when the requested 
+    /// - [`Error::ApiError`][error] This can happen when the request payload was malformed, or when the requested
     ///   domain name is unavailable (because it conflicts with another user’s zone) or invalid (due to policy, see below).
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
@@ -108,7 +108,7 @@ impl<'a> DomainClient<'a> {
     ///
     /// This method fails with:
     /// - [`Error::NotFound`][error] if the RRSet does not exist or does not belong to you
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a [`desec_api::domain::Domain`][domain] object 
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a [`desec_api::domain::Domain`][domain] object
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
@@ -160,11 +160,11 @@ impl<'a> DomainClient<'a> {
 
     /// Returns the account-domain which is responsible for the given DNS name.
     ///
-    /// Let’s say you have the domains example.net, dev.example.net and git.dev.example.net, 
-    /// and you would like to request a certificate for the TLS server name www.dev.example.net. 
+    /// Let’s say you have the domains example.net, dev.example.net and git.dev.example.net,
+    /// and you would like to request a certificate for the TLS server name www.dev.example.net.
     /// In this case, the TXT record needs to be created with the name _acme-challenge.www.dev.example.net.
     ///
-    /// If your account has a domain that is responsible for the name qname, the API returns a JSON array 
+    /// If your account has a domain that is responsible for the name qname, the API returns a JSON array
     /// containing only that domain object in the response body. Otherwise, the JSON array will be empty.
     ///
     /// # Errors
@@ -210,10 +210,9 @@ impl<'a> DomainClient<'a> {
             .get(format!("/domains/{domain}/zonefile/").as_str())
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .text()
-                .await
-                .map_err(Error::Reqwest),
+            Ok(response) if response.status() == StatusCode::OK => {
+                response.text().await.map_err(Error::Reqwest)
+            }
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),

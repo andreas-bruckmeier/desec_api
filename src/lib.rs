@@ -1,4 +1,4 @@
-use reqwest::{ header, Response };
+use reqwest::{header, Response};
 use thiserror::Error;
 
 pub mod account;
@@ -33,11 +33,10 @@ pub enum Error {
 pub struct Client {
     client: reqwest::Client,
     pub api_url: String,
-    pub token: String
+    pub token: String,
 }
 
 impl Client {
-
     /// Creates a new client using the given API token.
     ///
     /// # Errors
@@ -50,26 +49,30 @@ impl Client {
         let mut headers = header::HeaderMap::new();
         headers.insert(
             "Authorization",
-            header::HeaderValue::from_str(
-                format!("Token {}", token.as_str()).as_str()
-            ).unwrap()
+            header::HeaderValue::from_str(format!("Token {}", token.as_str()).as_str()).unwrap(),
         );
         let client = reqwest::ClientBuilder::new()
             .user_agent("rust-desec-client")
             .default_headers(headers)
             .build()
             .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
-        Ok(Client { client, api_url: API_URL.into(), token })
+        Ok(Client {
+            client,
+            api_url: API_URL.into(),
+            token,
+        })
     }
 
     async fn get(&self, endpoint: &str) -> Result<Response, reqwest::Error> {
-        self.client.get(format!("{}{}", self.api_url, endpoint))
+        self.client
+            .get(format!("{}{}", self.api_url, endpoint))
             .send()
             .await
     }
 
     async fn post(&self, endpoint: &str, body: String) -> Result<Response, reqwest::Error> {
-        self.client.post(format!("{}{}", self.api_url, endpoint).as_str())
+        self.client
+            .post(format!("{}{}", self.api_url, endpoint).as_str())
             .header("Content-Type", "application/json")
             .body(body.to_string())
             .send()
@@ -77,7 +80,8 @@ impl Client {
     }
 
     async fn patch(&self, endpoint: &str, body: String) -> Result<Response, reqwest::Error> {
-        self.client.patch(format!("{}{}", self.api_url, endpoint).as_str())
+        self.client
+            .patch(format!("{}{}", self.api_url, endpoint).as_str())
             .header("Content-Type", "application/json")
             .body(body)
             .send()
@@ -85,7 +89,8 @@ impl Client {
     }
 
     async fn delete(&self, endpoint: &str) -> Result<Response, reqwest::Error> {
-        self.client.delete(format!("{}{}", self.api_url, endpoint).as_str())
+        self.client
+            .delete(format!("{}{}", self.api_url, endpoint).as_str())
             .send()
             .await
     }

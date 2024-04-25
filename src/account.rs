@@ -39,10 +39,11 @@ impl<'a> AccountClient<'a> {
     /// [error]: ../enum.Error.html
     pub async fn get_account_info(&self) -> Result<AccountInformation, Error> {
         match self.client.get("/auth/account/").await {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),

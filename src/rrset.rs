@@ -66,10 +66,10 @@ impl<'a> RrsetClient<'a> {
     /// [rrset]: ./struct.ResourceRecordSet.html
     pub async fn create_rrset(
         &self,
-        domain: String,
-        subname: String,
-        rrset_type: String,
-        records: &[String],
+        domain: &str,
+        subname: &str,
+        rrset_type: &str,
+        records: &Vec<String>,
         ttl: u64,
     ) -> Result<ResourceRecordSet, Error> {
         let rrset = json!({
@@ -87,10 +87,11 @@ impl<'a> RrsetClient<'a> {
             )
             .await
         {
-            Ok(response) if response.status() == StatusCode::CREATED => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::CREATED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
@@ -119,10 +120,11 @@ impl<'a> RrsetClient<'a> {
             .get(format!("/domains/{domain}/rrsets/").as_str())
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
@@ -156,10 +158,11 @@ impl<'a> RrsetClient<'a> {
             .get(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
@@ -235,10 +238,11 @@ impl<'a> RrsetClient<'a> {
             )
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
 
             // An exception to this rule is when an empty array is provided as the records field,
             // in which case the RRset is deleted and the return code is 204 No Content (cf. Deleting an RRset).

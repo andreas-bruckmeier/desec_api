@@ -21,8 +21,8 @@ pub enum Error {
     ApiError(u16, String),
     #[error("API returned undocumented status code {0} with message '{1}'")]
     UnexpectedStatusCode(u16, String),
-    #[error("API returned an invalid response: {0}")]
-    InvalidAPIResponse(String),
+    #[error("API returned an invalid response. error: {0}, body: {1}")]
+    InvalidAPIResponse(String, String),
     #[error("An error occurred while serializing a JSON value: {0}")]
     Serialize(String),
     #[error("Failed to create HTTP client: {0}")]

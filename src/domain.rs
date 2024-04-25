@@ -20,12 +20,12 @@ impl<'a> Client {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Domain {
     pub created: String,
-    pub keys: Vec<DNSSECKeyInfo>,
+    pub keys: Option<Vec<DNSSECKeyInfo>>,
     pub minimum_ttl: u16,
     pub name: String,
-    pub published: String,
+    pub published: Option<String>,
     pub touched: String,
-    pub zonefile: String,
+    pub zonefile: Option<String>,
 }
 
 /// Representation of a deSEC [`DNSSEC`][reference] key.
@@ -55,16 +55,17 @@ impl<'a> DomainClient<'a> {
     ///
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
-    pub async fn create_domain(&self, domain: String) -> Result<Domain, Error> {
+    pub async fn create_domain(&self, domain: &str) -> Result<Domain, Error> {
         match self
             .client
             .post("/domains/", format!("{{\"name\": \"{domain}\"}}"))
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::CREATED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
             Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
@@ -90,10 +91,11 @@ impl<'a> DomainClient<'a> {
     /// [domain]: ./struct.Domain.html
     pub async fn get_domains(&self) -> Result<Vec<Domain>, Error> {
         match self.client.get("/domains/").await {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
@@ -120,10 +122,11 @@ impl<'a> DomainClient<'a> {
             .get(format!("/domains/{domain}/").as_str())
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
@@ -182,10 +185,11 @@ impl<'a> DomainClient<'a> {
             .get(format!("/domains/?owns_qname={qname}").as_str())
             .await
         {
-            Ok(response) if response.status() == StatusCode::OK => response
-                .json()
-                .await
-                .map_err(|error| Error::InvalidAPIResponse(error.to_string())),
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),

@@ -27,6 +27,30 @@ pub struct AccountInformation {
     pub outreach_preference: bool,
 }
 
+/// Representation of a deSEC [`login`][reference].
+///
+/// [reference]: https://desec.readthedocs.io/en/latest/auth/account.html#log-in
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Login {
+    pub allowed_subnets: Vec<String>,
+    pub created: String,
+    pub is_valid: bool,
+    pub last_used: Option<String>,
+    pub max_age: String,
+    pub max_unused_period: String,
+    pub name: String,
+    pub perm_manage_tokens: bool,
+    pub token: String
+}
+
+/// Representation of a deSEC [`register`][reference] response.
+///
+/// [reference]: https://desec.readthedocs.io/en/latest/auth/account.html#register-account
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RegisterResponse {
+    pub detail: String,
+}
+
 /// Representation of a deSEC [`captcha`][reference].
 ///
 /// [reference]: https://desec.readthedocs.io/en/latest/auth/account.html#obtain-a-captcha
@@ -89,7 +113,7 @@ impl<'a> AccountClient<'a> {
         captcha_id: &str,
         captcha_solution: &str,
         domain: Option<&str>,
-    ) -> Result<serde_json::Value, Error> {
+    ) -> Result<RegisterResponse, Error> {
         let payload = if let Some(domain) = domain {
             Some(
                 json!({
@@ -126,6 +150,64 @@ impl<'a> AccountClient<'a> {
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
+            Ok(response) => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+            Err(error) => Err(Error::Reqwest(error)),
+        }
+    }
+
+    /// Performs a login using username and password and returns an authenticated desec_api::Client on success.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::account::Login
+    /// - [`Error::Forbidden`][error] in case of credential mismatch
+    /// - [`Error::UnexpectedStatusCode`][error] in case of the API responds with an undocumented status code
+    /// - [`Error::ReqwestClientBuilder`][error] in case building the authenticated client fails
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn authenticate(
+        &self,
+        email: &str,
+        password: &str,
+    ) -> Result<Client, Error> {
+        let login = self.login(email, password).await?;
+        Ok(Client::new(login.token)?)
+    }
+
+    /// Performs a login using username and password and returns a desec_api::account::Login on success.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::account::Login
+    /// - [`Error::Forbidden`][error] in case of credential mismatch
+    /// - [`Error::UnexpectedStatusCode`][error] in case of the API responds with an undocumented status code
+    /// - [`Error::ReqwestClientBuilder`][error] in case building the authenticated client fails
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn login(
+        &self,
+        email: &str,
+        password: &str,
+    ) -> Result<Login, Error> {
+        let payload = json!({
+            "email": email,
+            "password": password,
+        })
+        .to_string();
+        match self.client.post("/auth/login/", Some(payload)).await {
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            Ok(response) if response.status() == StatusCode::FORBIDDEN => Err(Error::Forbidden),
             Ok(response) => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),

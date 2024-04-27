@@ -17,6 +17,8 @@ pub enum Error {
     RateLimited(String, String),
     #[error("The requested resource does not exist or you are not the owner")]
     NotFound,
+    #[error("The given credentials are not valid")]
+    Forbidden,
     #[error("API returned status code {0} with message '{1}'")]
     ApiError(u16, String),
     #[error("API returned undocumented status code {0} with message '{1}'")]
@@ -33,10 +35,30 @@ pub enum Error {
 pub struct Client {
     client: reqwest::Client,
     pub api_url: String,
-    pub token: String,
+    pub token: Option<String>,
 }
 
 impl Client {
+    /// Creates a new unauthenticated client for the purpose of loggin in with credentials.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with [`Error::ReqwestClientBuilder`][error] if the underlying [`reqwest::ClientBuilder`][builder] fails to build a http client.
+    ///
+    /// [error]: enum.Error.html
+    /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
+    pub fn new_unauth() -> Result<Self, Error> {
+        let client = reqwest::ClientBuilder::new()
+            .user_agent("rust-desec-client")
+            .build()
+            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+        Ok(Client {
+            client,
+            api_url: API_URL.into(),
+            token: None,
+        })
+    }
+
     /// Creates a new client using the given API token.
     ///
     /// # Errors
@@ -59,7 +81,7 @@ impl Client {
         Ok(Client {
             client,
             api_url: API_URL.into(),
-            token,
+            token: Some(token),
         })
     }
 

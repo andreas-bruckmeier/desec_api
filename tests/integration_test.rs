@@ -18,7 +18,6 @@ async fn test_account_info() {
     if let Some(key) = read_apikey() {
         let client = Client::new(key.clone()).unwrap();
         let account_info = client.account().get_account_info().await;
-        println!("{:#?}", account_info);
         assert!(account_info.is_ok());
         assert!(account_info.unwrap().email.contains("@"));
     }
@@ -56,14 +55,14 @@ async fn test_rrset() {
     {
         let client = Client::new(key.clone()).unwrap();
         let rrset_type = String::from("A");
-        let records = [String::from("8.8.8.8")];
+        let records = vec![String::from("8.8.8.8")];
 
         let rrset = client
             .rrset()
             .create_rrset(
-                domain.clone(),
-                subname.clone(),
-                rrset_type.clone(),
+                &domain,
+                &subname,
+                &rrset_type,
                 &records,
                 3600,
             )
@@ -100,15 +99,10 @@ async fn test_rrset() {
 
         std::thread::sleep(Duration::from_millis(1000));
 
-        match client
+        let res = client
             .rrset()
             .delete_rrset(&domain, &subname, &rrset_type)
-            .await
-        {
-            Ok(_) => {}
-            Err(err) => {
-                println!("{:#?}", err);
-            }
-        }
+            .await;
+        assert!(res.is_ok());
     }
 }

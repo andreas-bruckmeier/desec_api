@@ -82,8 +82,8 @@ impl<'a> RrsetClient<'a> {
             .client
             .post(
                 format!("/domains/{domain}/rrsets/").as_str(),
-                serde_json::to_string(&rrset)
-                    .map_err(|error| Error::Serialize(error.to_string()))?,
+                Some(serde_json::to_string(&rrset)
+                    .map_err(|error| Error::Serialize(error.to_string()))?),
             )
             .await
         {

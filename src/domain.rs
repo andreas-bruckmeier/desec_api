@@ -58,7 +58,7 @@ impl<'a> DomainClient<'a> {
     pub async fn create_domain(&self, domain: &str) -> Result<Domain, Error> {
         match self
             .client
-            .post("/domains/", format!("{{\"name\": \"{domain}\"}}"))
+            .post("/domains/", Some(format!("{{\"name\": \"{domain}\"}}")))
             .await
         {
             Ok(response) if response.status() == StatusCode::CREATED => {

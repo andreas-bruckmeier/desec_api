@@ -70,13 +70,22 @@ impl Client {
             .await
     }
 
-    async fn post(&self, endpoint: &str, body: String) -> Result<Response, reqwest::Error> {
-        self.client
-            .post(format!("{}{}", self.api_url, endpoint).as_str())
-            .header("Content-Type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await
+    async fn post(&self, endpoint: &str, body: Option<String>) -> Result<Response, reqwest::Error> {
+        // TODO replace if/else with something smarter
+        if body.is_some() {
+            self.client
+                .post(format!("{}{}", self.api_url, endpoint).as_str())
+                .header("Content-Type", "application/json")
+                .body(body.unwrap())
+                .send()
+                .await
+        } else {
+            self.client
+                .post(format!("{}{}", self.api_url, endpoint).as_str())
+                .header("Content-Type", "application/json")
+                .send()
+                .await
+        }
     }
 
     async fn patch(&self, endpoint: &str, body: String) -> Result<Response, reqwest::Error> {

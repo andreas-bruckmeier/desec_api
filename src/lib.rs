@@ -1,3 +1,89 @@
+//! Unofficial Rust client for the [deSEC DNS API](https://desec.readthedocs.io/en/latest/).
+//!
+//! # Supported endpoints
+//!
+//! * Manage accounts
+//!   * Obtain a Captcha
+//!   * Register Account with optional domain creation
+//!   * Log In (Retrieve API token using email & password)
+//!   * Retrieve account information
+//!   * Modify account settings (only updating outreach_preference is supported by the API)
+//!   * Password reset (Request for password reset & confirmation, but handling of approval via mail needs to be handled)
+//!   * Password change
+//!   * Change of email address
+//!   * Delete account
+//!
+//! * Manage domains
+//!   * Creating a domain
+//!   * List domains
+//!   * Retrieve a specific domain
+//!   * Identifying the responsible domain for a DNS name
+//!   * Exporting a domain as zonefile
+//!   * Deleting a domain
+//!
+//! * Manage DNS records
+//!   * Creating an RRset
+//!   * Retrieving all RRsets in a Zone
+//!   * Retrieving a Specific RRset
+//!   * Modifying an RRset
+//!   * Deleting an RRset
+//!
+//! # Currently not supported
+//!
+//! * Pagination when over 500 items exist
+//! * Account
+//!   * Logout: login tokens expire 7 days after creation or when not used for 1 hour, whichever comes first.
+//!       But maybe a logout function will be added in future version.
+//! * Manage DNS records
+//!   * Filtering when retrieving RRsets
+//!   * Bulk operations when modifying or deleting RRsets
+//!
+//! # Usage example
+//!
+//! ## With existing API token
+//! ```
+//!use desec_api::Client;
+//!
+//!#[tokio::main]
+//!async fn main() {
+//!
+//!    let client = Client::new("i-T3b1h_OI-H9ab8tRS98stGtURe")
+//!        .await
+//!        .unwrap();
+//!
+//!    // Retrieve account informations
+//!    let account_info = client
+//!        .account()
+//!        .get_account_info()
+//!        .await
+//!        .unwrap();
+//!    
+//!    println!("{:#?}", account_info);
+//!} 
+//! ```
+//!
+//! ## With login credentials
+//! ```
+//!use desec_api::Client;
+//!
+//!#[tokio::main]
+//!async fn main() {
+//!
+//!    let client = Client::new_from_credentials("info@example.com", "mysecret")
+//!        .await
+//!        .unwrap();
+//!
+//!    // Retrieve all RRsets of domain `example.com`
+//!    let rrets = client
+//!        .rrset()
+//!        .get_rrsets("example.com")
+//!        .await
+//!        .unwrap();
+//!    
+//!    println!("{:#?}", rrsets);
+//!} 
+//! ```
+
 use reqwest::{header, Response, StatusCode};
 use thiserror::Error;
 

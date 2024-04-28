@@ -39,7 +39,7 @@ impl<'a> TokenClient<'a> {
     /// # Errors
     ///
     /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Token
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
@@ -87,7 +87,6 @@ impl<'a> TokenClient<'a> {
     /// # Errors
     ///
     /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
@@ -110,7 +109,7 @@ impl<'a> TokenClient<'a> {
     /// # Errors
     ///
     /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a list of desec_api::token::Token
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
@@ -134,7 +133,7 @@ impl<'a> TokenClient<'a> {
     /// # Errors
     ///
     /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///

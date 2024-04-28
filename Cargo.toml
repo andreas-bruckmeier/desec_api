@@ -17,3 +17,6 @@ reqwest = { version = "0.11.26", default-features = false, features = ["rustls-t
 
 [dev-dependencies]
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
+tokio-shared-rt = "0.1.0"
+ureq = "2.9.7"
+uuid = { version = "1.8.0", features = ["v4"] }

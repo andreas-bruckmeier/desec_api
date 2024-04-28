@@ -1,11 +1,12 @@
-use reqwest::{header, Response};
+use reqwest::{header, Response, StatusCode};
 use thiserror::Error;
 
 pub mod account;
+pub mod token;
 pub mod domain;
 pub mod rrset;
 
-static API_URL: &str = "https://desec.io/api/v1";
+pub const API_URL: &str = "https://desec.io/api/v1";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -29,36 +30,16 @@ pub enum Error {
     Serialize(String),
     #[error("Failed to create HTTP client: {0}")]
     ReqwestClientBuilder(String),
+    #[error("Request is unauthorized: {0}")]
+    Unauthorized(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct Client {
     client: reqwest::Client,
-    pub api_url: String,
-    pub token: Option<String>,
 }
 
 impl Client {
-    /// Creates a new unauthenticated client for the purpose of loggin in with credentials.
-    ///
-    /// # Errors
-    ///
-    /// This method fails with [`Error::ReqwestClientBuilder`][error] if the underlying [`reqwest::ClientBuilder`][builder] fails to build a http client.
-    ///
-    /// [error]: enum.Error.html
-    /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
-    pub fn new_unauth() -> Result<Self, Error> {
-        let client = reqwest::ClientBuilder::new()
-            .user_agent("rust-desec-client")
-            .build()
-            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
-        Ok(Client {
-            client,
-            api_url: API_URL.into(),
-            token: None,
-        })
-    }
-
     /// Creates a new client using the given API token.
     ///
     /// # Errors
@@ -79,40 +60,42 @@ impl Client {
             .build()
             .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
         Ok(Client {
-            client,
-            api_url: API_URL.into(),
-            token: Some(token),
+            client
         })
+    }
+
+    /// Creates a new client using the given credentials.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with [`Error::ReqwestClientBuilder`][error] if the underlying [`reqwest::ClientBuilder`][builder] fails to build a http client.
+    ///
+    /// [error]: enum.Error.html
+    /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
+    pub async fn new_from_credentials(email: &str, password: &str) -> Result<Self, Error> {
+        let login = account::login(email, password).await?;
+        Client::new(login.token)
     }
 
     async fn get(&self, endpoint: &str) -> Result<Response, reqwest::Error> {
         self.client
-            .get(format!("{}{}", self.api_url, endpoint))
+            .get(format!("{}{}", API_URL, endpoint))
             .send()
             .await
     }
 
     async fn post(&self, endpoint: &str, body: Option<String>) -> Result<Response, reqwest::Error> {
-        // TODO replace if/else with something smarter
-        if body.is_some() {
-            self.client
-                .post(format!("{}{}", self.api_url, endpoint).as_str())
-                .header("Content-Type", "application/json")
-                .body(body.unwrap())
-                .send()
-                .await
-        } else {
-            self.client
-                .post(format!("{}{}", self.api_url, endpoint).as_str())
-                .header("Content-Type", "application/json")
-                .send()
-                .await
-        }
+        self.client
+            .post(format!("{}{}", API_URL, endpoint).as_str())
+            .header("Content-Type", "application/json")
+            .body(body.unwrap_or_default()) // body is optional, so we send empty string when None
+            .send()
+            .await
     }
 
     async fn patch(&self, endpoint: &str, body: String) -> Result<Response, reqwest::Error> {
         self.client
-            .patch(format!("{}{}", self.api_url, endpoint).as_str())
+            .patch(format!("{}{}", API_URL, endpoint).as_str())
             .header("Content-Type", "application/json")
             .body(body)
             .send()
@@ -121,8 +104,52 @@ impl Client {
 
     async fn delete(&self, endpoint: &str) -> Result<Response, reqwest::Error> {
         self.client
-            .delete(format!("{}{}", self.api_url, endpoint).as_str())
+            .delete(format!("{}{}", API_URL, endpoint).as_str())
             .send()
             .await
+    }
+}
+
+async fn process_response_error(response: reqwest::Response) -> Error {
+    match response.status() {
+        StatusCode::UNAUTHORIZED => {
+            Error::Unauthorized(
+                response.text().await.unwrap_or_default(),
+            )
+        },
+        StatusCode::FORBIDDEN => {
+            Error::Forbidden
+        },
+        StatusCode::BAD_REQUEST => {
+            Error::ApiError(
+                response.status().as_u16(),
+                response.text().await.unwrap_or_default(),
+            )
+        },
+        StatusCode::NOT_FOUND => {
+            Error::NotFound
+        },
+        StatusCode::TOO_MANY_REQUESTS => {
+            match response.headers().get("retry-after") {
+                Some(header) => match header.to_str() {
+                    Ok(header) => Error::RateLimited(
+                        header.to_string(),
+                        response.text().await.unwrap_or_default(),
+                    ),
+                    Err(_) => Error::ApiError(
+                        response.status().into(),
+                        "Request got throttled with invalid retry-after header".to_string(),
+                    ),
+                },
+                None => Error::ApiError(
+                    response.status().into(),
+                    "Request got throttled without retry-header".to_string(),
+                ),
+            }
+        },
+        _ => Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )
     }
 }

@@ -27,26 +27,6 @@ pub struct ResourceRecordSet {
     pub touched: String,
 }
 
-// Helper to generate a rate limit error from the response
-async fn throttling_error(response: reqwest::Response) -> Error {
-    match response.headers().get("retry-after") {
-        Some(header) => match header.to_str() {
-            Ok(header) => Error::RateLimited(
-                header.to_string(),
-                response.text().await.unwrap_or_default(),
-            ),
-            Err(_) => Error::ApiError(
-                response.status().into(),
-                "Request got throttled with invalid retry-after header".to_string(),
-            ),
-        },
-        None => Error::ApiError(
-            response.status().into(),
-            "Request got throttled without retry-header".to_string(),
-        ),
-    }
-}
-
 impl<'a> RrsetClient<'a> {
     /// Creates a new RRSet and returns the newly created [`ResourceRecordSet`][rrset].
     ///
@@ -82,8 +62,10 @@ impl<'a> RrsetClient<'a> {
             .client
             .post(
                 format!("/domains/{domain}/rrsets/").as_str(),
-                Some(serde_json::to_string(&rrset)
-                    .map_err(|error| Error::Serialize(error.to_string()))?),
+                Some(
+                    serde_json::to_string(&rrset)
+                        .map_err(|error| Error::Serialize(error.to_string()))?,
+                ),
             )
             .await
         {
@@ -92,15 +74,8 @@ impl<'a> RrsetClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -125,11 +100,8 @@ impl<'a> RrsetClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -163,12 +135,8 @@ impl<'a> RrsetClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -243,30 +211,11 @@ impl<'a> RrsetClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-
             // An exception to this rule is when an empty array is provided as the records field,
             // in which case the RRset is deleted and the return code is 204 No Content (cf. Deleting an RRset).
             Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(None),
-
-            // In case the operation cannot be performed with the given parameters,
-            // the API returns 400 Bad Request. This can happen, for instance, when there is
-            // a conflicting RRset with the same name and type, when not all required fields
-            // were provided correctly (such as, when the type value was not provided in uppercase),
-            // or when the record content is semantically invalid
-            // (e.g. when you provide an unknown record type, or an A value that is not an IPv4 address).
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            // Rate limit / API Request Throttling
-            Ok(response) if response.status() == StatusCode::TOO_MANY_REQUESTS => {
-                Err(throttling_error(response).await)
-            }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -296,11 +245,8 @@ impl<'a> RrsetClient<'a> {
             // Upon success or if the RRset did not exist in the first place,
             // the response status code is 204 No Content.
             Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 }

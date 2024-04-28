@@ -18,7 +18,7 @@ impl<'a> Client {
 /// Representation of a deSEC [`account`][reference].
 ///
 /// [reference]: https://desec.readthedocs.io/en/latest/auth/account.html
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountInformation {
     pub created: String,
     pub email: String,
@@ -40,7 +40,7 @@ pub struct Login {
     pub max_unused_period: String,
     pub name: String,
     pub perm_manage_tokens: bool,
-    pub token: String
+    pub token: String,
 }
 
 /// Representation of a deSEC [`register`][reference] response.
@@ -64,7 +64,7 @@ pub struct Captcha {
 /// Kind of challenge. Currently only image implemented.
 ///
 /// [reference]: https://desec.readthedocs.io/en/latest/auth/account.html#obtain-a-captcha
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CaptchaKind {
     Image,
@@ -87,12 +87,9 @@ impl<'a> AccountClient<'a> {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -146,73 +143,8 @@ impl<'a> AccountClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             }
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
-        }
-    }
-
-    /// Performs a login using username and password and returns an authenticated desec_api::Client on success.
-    ///
-    /// # Errors
-    ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::account::Login
-    /// - [`Error::Forbidden`][error] in case of credential mismatch
-    /// - [`Error::UnexpectedStatusCode`][error] in case of the API responds with an undocumented status code
-    /// - [`Error::ReqwestClientBuilder`][error] in case building the authenticated client fails
-    /// - [`Error::Reqwest`][error] if the whole request failed
-    ///
-    /// [error]: ../enum.Error.html
-    pub async fn authenticate(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> Result<Client, Error> {
-        let login = self.login(email, password).await?;
-        Ok(Client::new(login.token)?)
-    }
-
-    /// Performs a login using username and password and returns a desec_api::account::Login on success.
-    ///
-    /// # Errors
-    ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::account::Login
-    /// - [`Error::Forbidden`][error] in case of credential mismatch
-    /// - [`Error::UnexpectedStatusCode`][error] in case of the API responds with an undocumented status code
-    /// - [`Error::ReqwestClientBuilder`][error] in case building the authenticated client fails
-    /// - [`Error::Reqwest`][error] if the whole request failed
-    ///
-    /// [error]: ../enum.Error.html
-    pub async fn login(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> Result<Login, Error> {
-        let payload = json!({
-            "email": email,
-            "password": password,
-        })
-        .to_string();
-        match self.client.post("/auth/login/", Some(payload)).await {
-            Ok(response) if response.status() == StatusCode::OK => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            Ok(response) if response.status() == StatusCode::FORBIDDEN => Err(Error::Forbidden),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -233,11 +165,228 @@ impl<'a> AccountClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
+    }
+
+    /// Updates the accounts outreach preference, the only field currently updatable.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn update_outreach_preference(
+        &self,
+        outreach_preference: bool,
+    ) -> Result<AccountInformation, Error> {
+        match self
+            .client
+            .patch(
+                "/auth/account/",
+                json!({"outreach_preference": outreach_preference}).to_string(),
+            )
+            .await
+        {
+            Ok(response) if response.status() == StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
+        }
+    }
+
+    /// Initiates a password reset using your email address and a captcha solution.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn request_password_reset(
+        &self,
+        email: &str,
+        captcha_id: &str,
+        captcha_solution: &str
+    ) -> Result<AccountInformation, Error> {
+        match self
+            .client
+            .post(
+                "/auth/account/reset-password/",
+                Some(json!({
+                  "email": email,
+                  "captcha": {
+                    "id": captcha_id,
+                    "solution": captcha_solution
+                  }
+                }).to_string()),
+            )
+            .await
+        {
+            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
+        }
+    }
+
+    /// Confirms a password reset using the code sent via email.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn confirm_password_reset(
+        &self,
+        new_password: &str,
+        code: &str
+    ) -> Result<AccountInformation, Error> {
+        match self
+            .client
+            .post(
+                format!("/auth/account/reset-password/{code}").as_str(),
+                Some(json!({"new_password": new_password}).to_string()),
+            )
+            .await
+        {
+            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
+        }
+    }
+
+    /// Updates your accounts email address.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn update_email(
+        &self,
+        email: &str,
+        password: &str,
+        new_email: &str
+    ) -> Result<AccountInformation, Error> {
+        match self
+            .client
+            .post(
+                "/auth/account/change-email/",
+                Some(json!({
+                  "email": email,
+                  "password": password,
+                  "new_email": new_email
+                }).to_string()),
+            )
+            .await
+        {
+            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
+        }
+    }
+
+    /// Deletes your account.
+    ///
+    /// Before you can delete your account, it is required to first delete all your domains from deSEC.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn delete_account(
+        &self,
+        email: &str,
+        password: &str
+    ) -> Result<AccountInformation, Error> {
+        match self
+            .client
+            .post(
+                "/auth/account/delete/",
+                Some(json!({"email": email, "password": password}).to_string()),
+            )
+            .await
+        {
+            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
+        }
+    }
+}
+
+/// Performs a login request using the given credentials and returns the login information.
+///
+/// # Errors
+///
+/// This method fails with:
+/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+/// - [`Error::Reqwest`][error] if the whole request failed
+///
+/// [error]: ../enum.Error.html
+pub async fn login(email: &str, password: &str) -> Result<Login, Error> {
+    // Temporary client for logging in with the credentials to
+    // obtain an API token.
+    let client = reqwest::ClientBuilder::new()
+        .user_agent("rust-desec-client")
+        .build()
+        .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    match client
+        .post(format!("{}/auth/login/", crate::API_URL))
+        .header("Content-Type", "application/json")
+        .body(
+            json!({
+                "email": email,
+                "password": password,
+            })
+            .to_string(),
+        )
+        .send()
+        .await
+    {
+        Ok(response) if response.status() == StatusCode::OK => {
+            // Build the final client using the token from the login
+            let response_text = response.text().await.map_err(Error::Reqwest)?;
+            Ok(serde_json::from_str(&response_text)
+                .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))?)
+        },
+        Ok(response) if response.status() == StatusCode::FORBIDDEN => Err(Error::Forbidden),
+        Ok(response) => Err(crate::process_response_error(response).await),
+        Err(error) => Err(Error::Reqwest(error))
     }
 }

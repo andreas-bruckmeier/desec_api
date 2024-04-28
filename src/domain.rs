@@ -65,16 +65,9 @@ impl<'a> DomainClient<'a> {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            },
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -96,11 +89,8 @@ impl<'a> DomainClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -127,12 +117,8 @@ impl<'a> DomainClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -153,11 +139,8 @@ impl<'a> DomainClient<'a> {
             .await
         {
             Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -190,11 +173,8 @@ impl<'a> DomainClient<'a> {
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 
@@ -217,11 +197,8 @@ impl<'a> DomainClient<'a> {
             Ok(response) if response.status() == StatusCode::OK => {
                 response.text().await.map_err(Error::Reqwest)
             }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
+            Ok(response) => Err(crate::process_response_error(response).await),
+            Err(error) => Err(Error::Reqwest(error))
         }
     }
 }

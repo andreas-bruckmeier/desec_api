@@ -9,4 +9,4 @@ Running on open-source software and supported by SSE, deSEC is free for everyone
 
 ## License
 
-See [LICENSE-MIT](LICENSE) for details.
+See [LICENSE-MIT](LICENSE-MIT) for details.

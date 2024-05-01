@@ -45,8 +45,7 @@ async fn test_account_info() {
 
 #[tokio_shared_rt::test(shared)]
 async fn test_captcha() {
-    let config = get_config().await;
-    let res = config.client.account().get_captcha().await;
+    let res = desec_api::account::get_captcha().await;
     assert!(res.is_ok());
     let captcha = res.unwrap();
     assert_eq!(captcha.kind, desec_api::account::CaptchaKind::Image);
@@ -60,7 +59,7 @@ async fn test_missing_resssources() {
     let rrset = config
         .client
         .rrset()
-        .get_rrset(&config.domain, "non-existing-subname", "A")
+        .get_rrset(&config.domain, Some("non-existing-subname"), "A")
         .await;
     match rrset {
         Err(desec_api::Error::NotFound) => (),
@@ -90,7 +89,7 @@ async fn test_rrset() {
     let rrset = config
         .client
         .rrset()
-        .create_rrset(&config.domain, &subname, &rrset_type, &records, 3600)
+        .create_rrset(&config.domain, Some(&subname), &rrset_type, 3600, &records)
         .await;
 
     assert!(rrset.is_ok());
@@ -104,7 +103,7 @@ async fn test_rrset() {
     let rrset = config
         .client
         .rrset()
-        .get_rrset(&config.domain, &subname, &rrset_type)
+        .get_rrset(&config.domain, Some(&subname), &rrset_type)
         .await;
 
     assert!(rrset.is_ok());
@@ -132,7 +131,7 @@ async fn test_rrset() {
     let res = config
         .client
         .rrset()
-        .delete_rrset(&config.domain, &subname, &rrset_type)
+        .delete_rrset(&config.domain, Some(&subname), &rrset_type)
         .await;
     res.expect("should be ok");
 }

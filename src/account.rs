@@ -71,28 +71,6 @@ pub enum CaptchaKind {
 }
 
 impl<'a> AccountClient<'a> {
-    /// Retrieves a base64 encoded captcha neccessary to register a new Account
-    ///
-    /// # Errors
-    ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
-    ///
-    /// [error]: ../enum.Error.html
-    pub async fn get_captcha(&self) -> Result<Captcha, Error> {
-        match self.client.post("/captcha/", None).await {
-            Ok(response) if response.status() == StatusCode::CREATED => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
-        }
-    }
-
     /// Registers a new account using a captcha solution, a capture id and an optional first domain.
     ///
     /// # Errors
@@ -346,6 +324,32 @@ impl<'a> AccountClient<'a> {
             Ok(response) => Err(crate::process_response_error(response).await),
             Err(error) => Err(Error::Reqwest(error))
         }
+    }
+}
+
+/// Retrieves a base64 encoded captcha neccessary to register a new Account
+///
+/// # Errors
+///
+/// This method fails with:
+/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+/// - [`Error::Reqwest`][error] if the whole request failed
+///
+/// [error]: ../enum.Error.html
+pub async fn get_captcha() -> Result<Captcha, Error> {
+    let client = reqwest::ClientBuilder::new()
+        .user_agent("rust-desec-client")
+        .build()
+        .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    match client.post(format!("{}/captcha/", crate::API_URL)).send().await {
+        Ok(response) if response.status() == StatusCode::CREATED => {
+            let response_text = response.text().await.map_err(Error::Reqwest)?;
+            serde_json::from_str(&response_text)
+                .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+        },
+        Ok(response) => Err(crate::process_response_error(response).await),
+        Err(error) => Err(Error::Reqwest(error))
     }
 }
 

@@ -32,6 +32,18 @@ pub struct Token {
     pub token: Option<String>,
 }
 
+/// Representation of a deSEC [`token policy`][reference].
+///
+/// [reference]: https://desec.readthedocs.io/en/latest/auth/tokens.html#token-policy-field-reference
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TokenPolicy {
+    pub id: String,
+    pub domain: Option<String>,
+    pub subname: Option<bool>,
+    pub r#type: Option<String>,
+    pub perm_write: bool,
+}
+
 impl<'a> TokenClient<'a> {
     /// Creates a new token.
     ///
@@ -214,6 +226,154 @@ impl<'a> TokenClient<'a> {
         let response = self
             .client
             .patch(format!("/auth/tokens/{token_id}/").as_str(), payload)
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Creates a new token policy.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn create_policy(
+        &self,
+        token_id: &str,
+        domain: Option<String>,
+        subname: Option<String>,
+        r#type: Option<String>,
+        perm_write: Option<bool>,
+    ) -> Result<TokenPolicy, Error> {
+        // Construct payload
+        let mut payload_map = Map::new();
+        if let Some(domain) = domain {
+            payload_map.insert("domain".to_string(), Value::String(domain));
+        } else {
+            payload_map.insert("domain".to_string(), Value::Null);
+        }
+        if let Some(subname) = subname {
+            payload_map.insert("subname".to_string(), Value::String(subname));
+        } else {
+            payload_map.insert("subname".to_string(), Value::Null);
+        }
+        if let Some(r#type) = r#type {
+            payload_map.insert("type".to_string(), Value::String(r#type));
+        } else {
+            payload_map.insert("type".to_string(), Value::Null);
+        }
+        payload_map.insert(
+            "bool".to_string(),
+            Value::Bool(perm_write.unwrap_or_default()),
+        );
+        let payload = Some(serde_json::to_string(&payload_map).unwrap());
+        let response = self
+            .client
+            .post(
+                format!("/auth/tokens/{token_id}/policies/rrsets/").as_str(),
+                payload,
+            )
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Retrieves a specific token policy.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn get_policy(&self, token_id: &str, policy_id: &str) -> Result<TokenPolicy, Error> {
+        let response = self
+            .client
+            .get(format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str())
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Get all policies for the given token.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn list_policies(&self, token_id: &str) -> Result<Vec<TokenPolicy>, Error> {
+        let response = self
+            .client
+            .get(format!("/auth/tokens/{token_id}/policies/rrsets/").as_str())
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Deletes a specific token policy.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn delete_policy(
+        &self,
+        token_id: &str,
+        policy_id: &str,
+    ) -> Result<TokenPolicy, Error> {
+        let response = self
+            .client
+            .delete(format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str())
             .await?;
         match response.status() {
             StatusCode::OK => {

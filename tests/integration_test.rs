@@ -1,4 +1,4 @@
-use desec_api::account::AccountInformation;
+use desec_api::account::{self, AccountInformation};
 use desec_api::Client;
 use std::env::var;
 use tokio::sync::OnceCell;
@@ -19,18 +19,31 @@ static CONFIG: OnceCell<TestConfiguration> = OnceCell::const_new();
 async fn get_config() -> &'static TestConfiguration {
     CONFIG
         .get_or_init(|| async {
-            let email = var("DESEC_EMAIL").unwrap();
-            let password = var("DESEC_PASSWORD").unwrap();
+            let token = var("DESEC_TOKEN").expect("Envvar DESEC_TOKEN should be set with valid token");
+            let mut client = Client::new(token)
+                .expect("Client should be buildable");
+            client.set_max_wait_retry(5);
+            client.set_max_retries(3);
             let domain = var("DESEC_DOMAIN").unwrap();
-            let client = Client::new_from_credentials(&email, &password)
-                .await
-                .expect("Authentication should succeed");
             TestConfiguration {
                 client,
                 domain,
             }
         })
         .await
+}
+
+#[tokio::test]
+async fn test_login_logout() {
+    let email = var("DESEC_EMAIL").unwrap();
+    let password = var("DESEC_PASSWORD").unwrap();
+    let login = account::login(&email, &password)
+        .await
+        .expect("Login should not fail");
+    assert!(!login.token.is_empty());
+    let logged_in_client = Client::new(login.token).expect("Client should be buildable");
+    logged_in_client.logout().await.expect("Logout should not fail");
+    // logged_in_client has been moved into logout
 }
 
 #[allow(clippy::needless_return)] // tokio_shared_rt somehow messes around
@@ -42,6 +55,14 @@ async fn test_account_info() {
     let expected: AccountInformation = serde_json::from_str(&var("DESEC_ACCOUNT_INFO").expect(""))
         .expect("expected account_info should be deserializable");
     assert_eq!(account_info, expected);
+}
+
+#[allow(clippy::needless_return)] // tokio_shared_rt somehow messes around
+#[tokio_shared_rt::test(shared)]
+async fn test_zonefile() {
+    let config = get_config().await;
+    let zonefile = config.client.domain().get_zonefile(&config.domain).await.expect("Zonefile should be exportable");
+    assert!(zonefile.contains("exported from desec.io"), "Zonefile does not contain expected string");
 }
 
 #[allow(clippy::needless_return)]
@@ -145,9 +166,24 @@ async fn test_rrset() {
 async fn test_retrieve_token() {
     let config = get_config().await;
     let token = config.client.token().get(
-        "fd486071-ec30-42c3-bb95-63e4d07f1b19"
+        var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str()
     ).await;
     token.expect("token should be ok");
+}
+
+#[allow(clippy::needless_return)]
+#[tokio_shared_rt::test(shared)]
+async fn test_patch_token() {
+    let config = get_config().await;
+    let token_new_name = format!("token-{}", Uuid::new_v4());
+    config.client.token().patch_token(
+        var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str(),
+        Some(token_new_name.clone()),
+        None,
+        None,
+        None,
+        None
+    ).await.expect("Token should be patchable");
 }
 
 #[allow(clippy::needless_return)]

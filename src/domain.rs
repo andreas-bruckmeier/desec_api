@@ -56,18 +56,20 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn create_domain(&self, domain: &str) -> Result<Domain, Error> {
-        match self
+        let response = self
             .client
             .post("/domains/", Some(format!("{{\"name\": \"{domain}\"}}")))
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::CREATED => {
+            .await?;
+        match response.status() {
+            StatusCode::CREATED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -83,14 +85,17 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn get_domains(&self) -> Result<Vec<Domain>, Error> {
-        match self.client.get("/domains/").await {
-            Ok(response) if response.status() == StatusCode::OK => {
+        let response = self.client.get("/domains/").await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -107,18 +112,20 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn get_domain(&self, domain: &str) -> Result<Domain, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -133,14 +140,16 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn delete_domain(&self, domain: &str) -> Result<(), Error> {
-        match self
+        let response = self
             .client
             .delete(format!("/domains/{domain}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            .await?;
+        match response.status() {
+            StatusCode::NO_CONTENT => Ok(()),
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -163,18 +172,20 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn get_owning_domain(&self, qname: &str) -> Result<Vec<Domain>, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/?owns_qname={qname}").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -189,16 +200,16 @@ impl<'a> DomainClient<'a> {
     /// [error]: ../enum.Error.html
     /// [domain]: ./struct.Domain.html
     pub async fn get_zonefile(&self, domain: &str) -> Result<String, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/zonefile/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
-                response.text().await.map_err(Error::Reqwest)
-            }
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            .await?;
+        match response.status() {
+            StatusCode::OK => response.text().await.map_err(Error::Reqwest),
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 }

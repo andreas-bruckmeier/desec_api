@@ -61,7 +61,7 @@ impl<'a> RrsetClient<'a> {
             "ttl": ttl,
             "records": records
         });
-        match self
+        let response = self
             .client
             .post(
                 format!("/domains/{domain}/rrsets/").as_str(),
@@ -70,15 +70,17 @@ impl<'a> RrsetClient<'a> {
                         .map_err(|error| Error::Serialize(error.to_string()))?,
                 ),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::CREATED => {
+            .await?;
+        match response.status() {
+            StatusCode::CREATED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -93,18 +95,20 @@ impl<'a> RrsetClient<'a> {
     ///
     /// [error]: ../enum.Error.html
     pub async fn get_rrsets(&self, domain: &str) -> Result<Vec<ResourceRecordSet>, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -127,19 +131,20 @@ impl<'a> RrsetClient<'a> {
     ) -> Result<ResourceRecordSet, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
         let subname = subname.unwrap_or("@");
-
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -197,7 +202,7 @@ impl<'a> RrsetClient<'a> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
         let subname = subname.unwrap_or("@");
 
-        match self
+        let response = self
             .client
             .patch(
                 format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str(),
@@ -207,18 +212,18 @@ impl<'a> RrsetClient<'a> {
                 }))
                 .map_err(|error| Error::Serialize(error.to_string()))?,
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            // An exception to this rule is when an empty array is provided as the records field,
-            // in which case the RRset is deleted and the return code is 204 No Content (cf. Deleting an RRset).
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(None),
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -239,16 +244,18 @@ impl<'a> RrsetClient<'a> {
     ) -> Result<(), Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
         let subname = subname.unwrap_or("@");
-        match self
+        let response = self
             .client
             .delete(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())
-            .await
-        {
+            .await?;
+        match response.status() {
             // Upon success or if the RRset did not exist in the first place,
             // the response status code is 204 No Content.
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            StatusCode::NO_CONTENT => Ok(()),
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 }

@@ -71,61 +71,6 @@ pub enum CaptchaKind {
 }
 
 impl<'a> AccountClient<'a> {
-    /// Registers a new account using a captcha solution, a capture id and an optional first domain.
-    ///
-    /// # Errors
-    ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
-    ///
-    /// [error]: ../enum.Error.html
-    pub async fn register(
-        &self,
-        email: &str,
-        password: &str,
-        captcha_id: &str,
-        captcha_solution: &str,
-        domain: Option<&str>,
-    ) -> Result<RegisterResponse, Error> {
-        let payload = if let Some(domain) = domain {
-            Some(
-                json!({
-                    "email": email,
-                    "password": password,
-                    "captcha": {
-                        "id": captcha_id,
-                        "solution": captcha_solution
-                    },
-                    "domain": domain
-                })
-                .to_string(),
-            )
-        } else {
-            Some(
-                json!({
-                    "email": email,
-                    "password": password,
-                    "captcha": {
-                        "id": captcha_id,
-                        "solution": captcha_solution
-                    }
-                })
-                .to_string(),
-            )
-        };
-        match self.client.post("/auth/", payload).await {
-            Ok(response) if response.status() == StatusCode::ACCEPTED => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
-        }
-    }
-
     /// Retrieves the account information.
     ///
     /// # Errors
@@ -137,14 +82,17 @@ impl<'a> AccountClient<'a> {
     ///
     /// [error]: ../enum.Error.html
     pub async fn get_account_info(&self) -> Result<AccountInformation, Error> {
-        match self.client.get("/auth/account/").await {
-            Ok(response) if response.status() == StatusCode::OK => {
+        let response = self.client.get("/auth/account/").await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             }
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -162,21 +110,23 @@ impl<'a> AccountClient<'a> {
         &self,
         outreach_preference: bool,
     ) -> Result<AccountInformation, Error> {
-        match self
+        let response = self
             .client
             .patch(
                 "/auth/account/",
                 json!({"outreach_preference": outreach_preference}).to_string(),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -194,29 +144,34 @@ impl<'a> AccountClient<'a> {
         &self,
         email: &str,
         captcha_id: &str,
-        captcha_solution: &str
+        captcha_solution: &str,
     ) -> Result<AccountInformation, Error> {
-        match self
+        let response = self
             .client
             .post(
                 "/auth/account/reset-password/",
-                Some(json!({
-                  "email": email,
-                  "captcha": {
-                    "id": captcha_id,
-                    "solution": captcha_solution
-                  }
-                }).to_string()),
+                Some(
+                    json!({
+                      "email": email,
+                      "captcha": {
+                        "id": captcha_id,
+                        "solution": captcha_solution
+                      }
+                    })
+                    .to_string(),
+                ),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+            .await?;
+        match response.status() {
+            StatusCode::ACCEPTED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -233,23 +188,25 @@ impl<'a> AccountClient<'a> {
     pub async fn confirm_password_reset(
         &self,
         new_password: &str,
-        code: &str
+        code: &str,
     ) -> Result<AccountInformation, Error> {
-        match self
+        let response = self
             .client
             .post(
                 format!("/auth/account/reset-password/{code}").as_str(),
                 Some(json!({"new_password": new_password}).to_string()),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+            .await?;
+        match response.status() {
+            StatusCode::ACCEPTED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -267,27 +224,32 @@ impl<'a> AccountClient<'a> {
         &self,
         email: &str,
         password: &str,
-        new_email: &str
+        new_email: &str,
     ) -> Result<AccountInformation, Error> {
-        match self
+        let response = self
             .client
             .post(
                 "/auth/account/change-email/",
-                Some(json!({
-                  "email": email,
-                  "password": password,
-                  "new_email": new_email
-                }).to_string()),
+                Some(
+                    json!({
+                      "email": email,
+                      "password": password,
+                      "new_email": new_email
+                    })
+                    .to_string(),
+                ),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+            .await?;
+        match response.status() {
+            StatusCode::ACCEPTED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -306,23 +268,25 @@ impl<'a> AccountClient<'a> {
     pub async fn delete_account(
         &self,
         email: &str,
-        password: &str
+        password: &str,
     ) -> Result<AccountInformation, Error> {
-        match self
+        let response = self
             .client
             .post(
                 "/auth/account/delete/",
                 Some(json!({"email": email, "password": password}).to_string()),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::ACCEPTED => {
+            .await?;
+        match response.status() {
+            StatusCode::ACCEPTED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(crate::process_response_error(response).await),
-            Err(error) => Err(Error::Reqwest(error))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 }
@@ -338,18 +302,74 @@ impl<'a> AccountClient<'a> {
 ///
 /// [error]: ../enum.Error.html
 pub async fn get_captcha() -> Result<Captcha, Error> {
-    let client = reqwest::ClientBuilder::new()
-        .user_agent("rust-desec-client")
-        .build()
-        .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
-    match client.post(format!("{}/captcha/", crate::API_URL)).send().await {
-        Ok(response) if response.status() == StatusCode::CREATED => {
+    let client =
+        Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    let response = client.post("/captcha/", None).await?;
+    match response.status() {
+        StatusCode::CREATED => {
             let response_text = response.text().await.map_err(Error::Reqwest)?;
             serde_json::from_str(&response_text)
                 .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-        },
-        Ok(response) => Err(crate::process_response_error(response).await),
-        Err(error) => Err(Error::Reqwest(error))
+        }
+        _ => Err(Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )),
+    }
+}
+
+/// Registers a new account using a captcha solution, a capture id and an optional first domain.
+///
+/// # Errors
+///
+/// This method fails with:
+/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+/// - [`Error::Reqwest`][error] if the whole request failed
+///
+/// [error]: ../enum.Error.html
+pub async fn register(
+    email: &str,
+    password: &str,
+    captcha_id: &str,
+    captcha_solution: &str,
+    domain: Option<&str>,
+) -> Result<RegisterResponse, Error> {
+    let payload = if let Some(domain) = domain {
+        json!({
+            "email": email,
+            "password": password,
+            "captcha": {
+                "id": captcha_id,
+                "solution": captcha_solution
+            },
+            "domain": domain
+        })
+        .to_string()
+    } else {
+        json!({
+            "email": email,
+            "password": password,
+            "captcha": {
+                "id": captcha_id,
+                "solution": captcha_solution
+            }
+        })
+        .to_string()
+    };
+    let client =
+        Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    let response = client.post("/auth/", Some(payload)).await?;
+    match response.status() {
+        StatusCode::ACCEPTED => {
+            let response_text = response.text().await.map_err(Error::Reqwest)?;
+            serde_json::from_str(&response_text)
+                .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+        }
+        _ => Err(Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )),
     }
 }
 
@@ -364,33 +384,30 @@ pub async fn get_captcha() -> Result<Captcha, Error> {
 ///
 /// [error]: ../enum.Error.html
 pub async fn login(email: &str, password: &str) -> Result<Login, Error> {
-    // Temporary client for logging in with the credentials to
-    // obtain an API token.
-    let client = reqwest::ClientBuilder::new()
-        .user_agent("rust-desec-client")
-        .build()
-        .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
-    match client
-        .post(format!("{}/auth/login/", crate::API_URL))
-        .header("Content-Type", "application/json")
-        .body(
-            json!({
-                "email": email,
-                "password": password,
-            })
-            .to_string(),
+    let client =
+        Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    let response = client
+        .post(
+            "/auth/login/",
+            Some(
+                json!({
+                    "email": email,
+                    "password": password,
+                })
+                .to_string(),
+            ),
         )
-        .send()
-        .await
-    {
-        Ok(response) if response.status() == StatusCode::OK => {
+        .await?;
+    match response.status() {
+        StatusCode::OK => {
             // Build the final client using the token from the login
             let response_text = response.text().await.map_err(Error::Reqwest)?;
             Ok(serde_json::from_str(&response_text)
                 .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))?)
-        },
-        Ok(response) if response.status() == StatusCode::FORBIDDEN => Err(Error::Forbidden),
-        Ok(response) => Err(crate::process_response_error(response).await),
-        Err(error) => Err(Error::Reqwest(error))
+        }
+        _ => Err(Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )),
     }
 }

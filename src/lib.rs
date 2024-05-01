@@ -208,6 +208,32 @@ impl Client {
         Client::get_client(None)
     }
 
+    /// Consume and logout the authenticated client.
+    ///
+    /// Attention: this assumes that the client has been authenticated using credentials.
+    /// Trying to logout a client created from a token will fail.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn logout(self) -> Result<(), Error> {
+        let response = self
+            .post("/auth/logout/", None)
+            .await?;
+        match response.status() {
+            StatusCode::NO_CONTENT => Ok(()),
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
     /// Sets whether retries are enabled.
     pub fn set_retry(&mut self, retry: bool) {
        self.retry = retry;

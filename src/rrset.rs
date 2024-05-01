@@ -18,12 +18,15 @@ impl<'a> Client {
 pub struct ResourceRecordSet {
     pub created: String,
     pub domain: String,
-    pub subname: String,
+    /// Subname is optional, so you can select the [zone apex][link]
+    ///
+    /// [link]: https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
+    pub subname: Option<String>,
     pub name: String,
     #[serde(rename = "type")]
     pub rrset_type: String,
-    pub records: Vec<String>,
     pub ttl: u64,
+    pub records: Vec<String>,
     pub touched: String,
 }
 
@@ -47,13 +50,13 @@ impl<'a> RrsetClient<'a> {
     pub async fn create_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
-        records: &Vec<String>,
         ttl: u64,
+        records: &Vec<String>,
     ) -> Result<ResourceRecordSet, Error> {
         let rrset = json!({
-            "subname": subname,
+            "subname": subname.unwrap_or("@"),
             "type": rrset_type,
             "ttl": ttl,
             "records": records
@@ -119,11 +122,11 @@ impl<'a> RrsetClient<'a> {
     pub async fn get_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
     ) -> Result<ResourceRecordSet, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
+        let subname = subname.unwrap_or("@");
 
         match self
             .client
@@ -158,7 +161,7 @@ impl<'a> RrsetClient<'a> {
     ) -> Result<Option<ResourceRecordSet>, Error> {
         self.patch_rrset(
             &rrset.domain,
-            &rrset.subname,
+            rrset.subname.as_deref(),
             &rrset.rrset_type,
             &rrset.records,
             rrset.ttl,
@@ -186,13 +189,13 @@ impl<'a> RrsetClient<'a> {
     pub async fn patch_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
         records: &[String],
         ttl: u64,
     ) -> Result<Option<ResourceRecordSet>, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
+        let subname = subname.unwrap_or("@");
 
         match self
             .client
@@ -219,7 +222,7 @@ impl<'a> RrsetClient<'a> {
         }
     }
 
-    /// Deletes the specified RRSet.
+    /// Deletes the RRSet specified by the given domain, subname and type.
     ///
     /// # Errors
     ///
@@ -231,12 +234,11 @@ impl<'a> RrsetClient<'a> {
     pub async fn delete_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
     ) -> Result<(), Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
-
+        let subname = subname.unwrap_or("@");
         match self
             .client
             .delete(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())

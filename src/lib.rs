@@ -41,14 +41,13 @@
 //! # Usage example
 //!
 //! ## With existing API token
-//! ```
+//! ```no_run
 //!use desec_api::Client;
 //!
 //!#[tokio::main]
 //!async fn main() {
 //!
-//!    let client = Client::new("i-T3b1h_OI-H9ab8tRS98stGtURe")
-//!        .await
+//!    let client = Client::new("i-T3b1h_OI-H9ab8tRS98stGtURe".to_string())
 //!        .unwrap();
 //!
 //!    // Retrieve account informations
@@ -63,7 +62,7 @@
 //! ```
 //!
 //! ## With login credentials
-//! ```
+//! ```no_run
 //!use desec_api::Client;
 //!
 //!#[tokio::main]
@@ -74,7 +73,7 @@
 //!        .unwrap();
 //!
 //!    // Retrieve all RRsets of domain `example.com`
-//!    let rrets = client
+//!    let rrsets = client
 //!        .rrset()
 //!        .get_rrsets("example.com")
 //!        .await

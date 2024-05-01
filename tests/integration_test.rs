@@ -208,3 +208,26 @@ async fn test_create_and_delete_token() {
     ).await;
     token.expect("token delete should be ok");
 }
+
+#[allow(clippy::needless_return)]
+#[tokio_shared_rt::test(shared)]
+async fn test_token_policy() {
+    let config = get_config().await;
+    let token = config.client.token().create(
+        Some(format!("integrationtest-{}", Uuid::new_v4())),
+        None,
+        None,
+        None,
+        None
+    ).await;
+    let token = token.expect("token should be ok");
+
+    // Respect rate limit
+    sleep(Duration::from_millis(1000)).await;
+
+    // Delete token
+    let token = config.client.token().delete(
+        token.id.as_str()
+    ).await;
+    token.expect("token delete should be ok");
+}

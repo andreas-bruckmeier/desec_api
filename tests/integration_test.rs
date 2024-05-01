@@ -176,7 +176,7 @@ async fn test_retrieve_token() {
 async fn test_patch_token() {
     let config = get_config().await;
     let token_new_name = format!("token-{}", Uuid::new_v4());
-    config.client.token().patch_token(
+    config.client.token().patch(
         var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str(),
         Some(token_new_name.clone()),
         None,
@@ -190,7 +190,7 @@ async fn test_patch_token() {
 #[tokio_shared_rt::test(shared)]
 async fn test_create_and_delete_token() {
     let config = get_config().await;
-    let token = config.client.token().create_token(
+    let token = config.client.token().create(
         Some(format!("integrationtest-{}", Uuid::new_v4())),
         None,
         None,
@@ -203,7 +203,7 @@ async fn test_create_and_delete_token() {
     sleep(Duration::from_millis(1000)).await;
 
     // Delete token
-    let token = config.client.token().delete_token(
+    let token = config.client.token().delete(
         token.id.as_str()
     ).await;
     token.expect("token delete should be ok");

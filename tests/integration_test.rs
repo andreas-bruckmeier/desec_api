@@ -33,6 +33,7 @@ async fn get_config() -> &'static TestConfiguration {
         .await
 }
 
+#[allow(clippy::needless_return)] // tokio_shared_rt somehow messes around
 #[tokio_shared_rt::test(shared)]
 async fn test_account_info() {
     let config = get_config().await;
@@ -43,6 +44,7 @@ async fn test_account_info() {
     assert_eq!(account_info, expected);
 }
 
+#[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn test_captcha() {
     let res = desec_api::account::get_captcha().await;
@@ -51,6 +53,7 @@ async fn test_captcha() {
     assert_eq!(captcha.kind, desec_api::account::CaptchaKind::Image);
 }
 
+#[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn test_missing_resssources() {
     let config = get_config().await;
@@ -75,9 +78,10 @@ async fn test_missing_resssources() {
     match rrset {
         Err(desec_api::Error::NotFound) => (),
         _ => panic!("Should yield desec_api::Error::NotFound"),
-    }
+    };
 }
 
+#[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn test_rrset() {
     let config = get_config().await;
@@ -136,15 +140,17 @@ async fn test_rrset() {
     res.expect("should be ok");
 }
 
+#[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn test_retrieve_token() {
     let config = get_config().await;
     let token = config.client.token().get(
         "fd486071-ec30-42c3-bb95-63e4d07f1b19"
     ).await;
-    let _ = token.expect("token should be ok");
+    token.expect("token should be ok");
 }
 
+#[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn test_create_and_delete_token() {
     let config = get_config().await;
@@ -164,5 +170,5 @@ async fn test_create_and_delete_token() {
     let token = config.client.token().delete_token(
         token.id.as_str()
     ).await;
-    let _ = token.expect("token delete should be ok");
+    token.expect("token delete should be ok");
 }

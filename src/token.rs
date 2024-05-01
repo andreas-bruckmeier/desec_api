@@ -43,7 +43,7 @@ impl<'a> TokenClient<'a> {
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
     /// [error]: ../enum.Error.html
-    pub async fn create_token(
+    pub async fn create(
         &self,
         name: Option<String>,
         allowed_subnets: Option<Vec<String>>,
@@ -99,7 +99,7 @@ impl<'a> TokenClient<'a> {
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
     /// [error]: ../enum.Error.html
-    pub async fn delete_token(&self, token_id: &str) -> Result<(), Error> {
+    pub async fn delete(&self, token_id: &str) -> Result<(), Error> {
         let response = self
             .client
             .delete(format!("/auth/tokens/{token_id}/").as_str())
@@ -178,7 +178,7 @@ impl<'a> TokenClient<'a> {
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
     /// [error]: ../enum.Error.html
-    pub async fn patch_token(
+    pub async fn patch(
         &self,
         token_id: &str,
         name: Option<String>,

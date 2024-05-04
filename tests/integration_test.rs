@@ -22,7 +22,7 @@ async fn get_config() -> &'static TestConfiguration {
             let token = var("DESEC_TOKEN").expect("Envvar DESEC_TOKEN should be set with valid token");
             let mut client = Client::new(token)
                 .expect("Client should be buildable");
-            client.set_max_wait_retry(5);
+            client.set_max_wait_retry(60);
             client.set_max_retries(3);
             let domain = var("DESEC_DOMAIN").unwrap();
             TestConfiguration {
@@ -213,6 +213,8 @@ async fn test_create_and_delete_token() {
 #[tokio_shared_rt::test(shared)]
 async fn test_token_policy() {
     let config = get_config().await;
+
+    // Create token
     let token = config.client.token().create(
         Some(format!("integrationtest-{}", Uuid::new_v4())),
         None,
@@ -222,12 +224,47 @@ async fn test_token_policy() {
     ).await;
     let token = token.expect("token should be ok");
 
-    // Respect rate limit
+    sleep(Duration::from_millis(1000)).await;
+    
+    // Create policy
+    let policy = config.client.token().create_policy(
+        &token.id,
+        None,
+        None,
+        None,
+        None
+    ).await;
+    let policy = policy.expect("token policy should be ok");
+
+    sleep(Duration::from_millis(1000)).await;
+
+    // Get
+    let policy_get = config.client.token().get_policy(
+        &token.id,
+        &policy.id,
+    ).await;
+    let policy_get = policy_get.expect("Fetch of token policy should be ok");
+    assert_eq!(policy_get.id, policy.id);
+    assert_eq!(policy_get.domain, policy.domain);
+    assert_eq!(policy_get.subname, policy.subname);
+    assert_eq!(policy_get.r#type, policy.r#type);
+    assert_eq!(policy_get.perm_write, policy.perm_write);
+
+    sleep(Duration::from_millis(1000)).await;
+
+    // Delete policy
+    let res = config.client.token().delete_policy(
+        &token.id,
+        &policy.id,
+    ).await;
+    res.expect("Deletion of token policy should be ok");
+
     sleep(Duration::from_millis(1000)).await;
 
     // Delete token
-    let token = config.client.token().delete(
-        token.id.as_str()
+    let res = config.client.token().delete(
+        &token.id
     ).await;
-    token.expect("token delete should be ok");
+    res.expect("Deletion of token should be ok");
+
 }

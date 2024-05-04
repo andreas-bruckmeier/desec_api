@@ -1,6 +1,6 @@
 # deSEC Client
 
-Unofficial client library for the (deSEC)[https://desec.io/] DNS API.
+Unofficial client library for the [deSEC](https://desec.io/) DNS API.
 
 deSEC is a **free DNS hosting** service, **designed with security in mind**.
 Running on **open-source software** and **supported by [SSE](https://securesystems.de/)**, deSEC is free for everyone to use.

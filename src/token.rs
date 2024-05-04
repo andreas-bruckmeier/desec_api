@@ -49,12 +49,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Token
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn create(
         &self,
         name: Option<String>,
@@ -106,11 +103,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete(&self, token_id: &str) -> Result<(), Error> {
         let response = self
             .client
@@ -131,12 +126,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a list of desec_api::token::Token
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn list(&self) -> Result<Vec<Token>, Error> {
         let response = self.client.get("/auth/tokens/").await?;
         match response.status() {
@@ -156,12 +148,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get(&self, token_id: &str) -> Result<Token, Error> {
         let response = self
             .client
@@ -184,12 +173,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn patch(
         &self,
         token_id: &str,
@@ -244,12 +230,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn create_policy(
         &self,
         token_id: &str,
@@ -304,12 +287,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn patch_policy(
         &self,
         token_id: &str,
@@ -358,12 +338,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_policy(&self, token_id: &str, policy_id: &str) -> Result<TokenPolicy, Error> {
         let response = self
             .client
@@ -386,12 +363,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn list_policies(&self, token_id: &str) -> Result<Vec<TokenPolicy>, Error> {
         let response = self
             .client
@@ -414,12 +388,9 @@ impl<'a> TokenClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete_policy(
         &self,
         token_id: &str,

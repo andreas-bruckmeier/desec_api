@@ -75,12 +75,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_account_info(&self) -> Result<AccountInformation, Error> {
         let response = self.client.get("/auth/account/").await?;
         match response.status() {
@@ -100,12 +97,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn update_outreach_preference(
         &self,
         outreach_preference: bool,
@@ -134,12 +128,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn request_password_reset(
         &self,
         email: &str,
@@ -179,12 +170,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn confirm_password_reset(
         &self,
         new_password: &str,
@@ -214,12 +202,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn update_email(
         &self,
         email: &str,
@@ -259,12 +244,9 @@ impl<'a> AccountClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete_account(
         &self,
         email: &str,
@@ -295,12 +277,9 @@ impl<'a> AccountClient<'a> {
 ///
 /// # Errors
 ///
-/// This method fails with:
-/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-/// - [`Error::Reqwest`][error] if the whole request failed
+/// see [General errors][general_errors]
 ///
-/// [error]: ../enum.Error.html
+/// [general_errors]: ../index.html#general-errors-for-all-clients
 pub async fn get_captcha() -> Result<Captcha, Error> {
     let client =
         Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
@@ -322,12 +301,9 @@ pub async fn get_captcha() -> Result<Captcha, Error> {
 ///
 /// # Errors
 ///
-/// This method fails with:
-/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-/// - [`Error::Reqwest`][error] if the whole request failed
+/// see [General errors][general_errors]
 ///
-/// [error]: ../enum.Error.html
+/// [general_errors]: ../index.html#general-errors-for-all-clients
 pub async fn register(
     email: &str,
     password: &str,
@@ -377,12 +353,9 @@ pub async fn register(
 ///
 /// # Errors
 ///
-/// This method fails with:
-/// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-/// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-/// - [`Error::Reqwest`][error] if the whole request failed
+/// see [General errors][general_errors]
 ///
-/// [error]: ../enum.Error.html
+/// [general_errors]: ../index.html#general-errors-for-all-clients
 pub async fn login(email: &str, password: &str) -> Result<Login, Error> {
     let client =
         Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;

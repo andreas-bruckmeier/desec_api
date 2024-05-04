@@ -46,15 +46,10 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::ApiError`][error] This can happen when the request payload was malformed, or when the requested
-    ///   domain name is unavailable (because it conflicts with another user’s zone) or invalid (due to policy, see below).
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
+    /// [domain]: ../domain/struct.Domain.html
     pub async fn create_domain(&self, domain: &str) -> Result<Domain, Error> {
         let response = self
             .client
@@ -77,13 +72,9 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of [`desec_api::domain::Domain`][domain] objects
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_domains(&self) -> Result<Vec<Domain>, Error> {
         let response = self.client.get("/domains/").await?;
         match response.status() {
@@ -103,14 +94,9 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::NotFound`][error] if the RRSet does not exist or does not belong to you
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a [`desec_api::domain::Domain`][domain] object
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_domain(&self, domain: &str) -> Result<Domain, Error> {
         let response = self
             .client
@@ -133,12 +119,9 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete_domain(&self, domain: &str) -> Result<(), Error> {
         let response = self
             .client
@@ -164,13 +147,9 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of [`desec_api::domain::Domain`][domain] objects
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_owning_domain(&self, qname: &str) -> Result<Vec<Domain>, Error> {
         let response = self
             .client
@@ -193,12 +172,9 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_zonefile(&self, domain: &str) -> Result<String, Error> {
         let response = self
             .client

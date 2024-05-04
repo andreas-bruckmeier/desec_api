@@ -6,6 +6,7 @@
 //!   * Obtain a Captcha
 //!   * Register Account with optional domain creation
 //!   * Log In (Retrieve API token using email & password)
+//!   * Log Out (When client was created from credentials)
 //!   * Retrieve account information
 //!   * Modify account settings (only updating outreach_preference is supported by the API)
 //!   * Password reset (Request for password reset & confirmation, but handling of approval via mail needs to be handled)
@@ -24,19 +25,44 @@
 //! * Manage DNS records
 //!   * Creating an RRset
 //!   * Retrieving all RRsets in a Zone
+//!   * Retrieving all RRsets in a Zone filtered by type
+//!   * Retrieving all RRsets in a Zone filtered by subname
 //!   * Retrieving a Specific RRset
 //!   * Modifying an RRset
 //!   * Deleting an RRset
+//! 
+//! * Manage Tokens
+//!   * Create a token
+//!   * Modify a token
+//!   * List all tokens
+//!   * Retrieve a specific token
+//!   * Delete a token
+//!
+//! * Manage Token Policies
+//!   * Create a token policy (including default policy)
+//!   * Modify a token policy
+//!   * List all token policies
+//!   * Delete a token policy
 //!
 //! # Currently not supported
 //!
 //! * Pagination when over 500 items exist
-//! * Account
-//!   * Logout: login tokens expire 7 days after creation or when not used for 1 hour, whichever comes first.
-//!       But maybe a logout function will be added in future version.
 //! * Manage DNS records
-//!   * Filtering when retrieving RRsets
 //!   * Bulk operations when modifying or deleting RRsets
+//!
+//! # General errors for all clients
+//!
+//! There are some error which can occure for every client (account, domain, rrset, token).
+//!
+//! This method fails with:
+//! - [`Error::Reqwest`][error] if there was a problem in the underlying http client
+//! - [`Error::Unauthorized`][error] if the token of the client is invalid
+//! - [`Error::Forbidden`][error] if you are not allow to access a resource
+//! - [`Error::RateLimitedMaxRetriesReached`][error] if a request has been throttled too many times
+//! - [`Error::ApiError`][error] if the deSEC response cannot be transformed in the expected type
+//! - [`Error::NotFound`][error] if the resource does not exist
+//! - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+//! - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
 //!
 //! # Usage example
 //!
@@ -82,11 +108,14 @@
 //!    println!("{:#?}", rrsets);
 //!}
 //! ```
+//!
+//! [error]: enum.Error.html
 
 use log::debug;
 use reqwest::{header, Response, StatusCode};
 use thiserror::Error;
 use tokio::time::{sleep, Duration};
+use const_format::concatcp;
 
 pub mod account;
 pub mod domain;
@@ -95,14 +124,17 @@ pub mod token;
 
 pub const API_URL: &str = "https://desec.io/api/v1";
 
-const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+// Build useragent at compile time
+pub const USERAGENT: &str = concatcp!(
+    "desec-api-client/",
+    env!("CARGO_PKG_VERSION"),
+    " (unoffical deSEC API client written in Rust)"
+);
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("An error occurred during the request")]
     Reqwest(reqwest::Error),
-    // Could be integer but not header also allows http-dates
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
     #[error("You hit a rate limit and need to wait {0} seconds. Additional Info: {1}")]
     RateLimited(String, String),
     #[error("The maximum count of retries has been reached")]
@@ -123,6 +155,8 @@ pub enum Error {
     ReqwestClientBuilder(String),
     #[error("Request is unauthorized: {0}")]
     Unauthorized(String),
+    #[error("Client has not been logged in, so you cannot logout")]
+    CannotLogout,
 }
 
 #[derive(Debug, Clone)]
@@ -134,18 +168,13 @@ pub struct Client {
     max_wait_retry: u64,
     /// Maximum number of retries
     max_retries: usize,
-}
-
-fn get_useragent() -> String {
-    format!(
-        "desec-api-client/{} (unoffical deSEC API client written in Rust)",
-        VERSION.unwrap_or("unknown")
-    )
+    /// Whether this client has been logged in before
+    logged_in: bool
 }
 
 impl Client {
-    fn get_client(token: Option<String>) -> Result<Self, Error> {
-        let mut client = reqwest::ClientBuilder::new().user_agent(get_useragent());
+    fn get_client(token: Option<String>, logged_in: Option<bool>) -> Result<Self, Error> {
+        let mut client = reqwest::ClientBuilder::new().user_agent(USERAGENT);
         if let Some(token) = token {
             let mut headers = header::HeaderMap::new();
             headers.insert(
@@ -163,6 +192,7 @@ impl Client {
             retry: true,
             max_wait_retry: 60,
             max_retries: 3,
+            logged_in: logged_in.unwrap_or_default()
         })
     }
 
@@ -180,7 +210,7 @@ impl Client {
             "Authorization",
             header::HeaderValue::from_str(format!("Token {}", token.as_str()).as_str()).unwrap(),
         );
-        Client::get_client(Some(token))
+        Client::get_client(Some(token), None)
     }
 
     /// Creates a new client using the given credentials.
@@ -193,7 +223,7 @@ impl Client {
     /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
     pub async fn new_from_credentials(email: &str, password: &str) -> Result<Self, Error> {
         let login = account::login(email, password).await?;
-        Client::get_client(Some(login.token))
+        Client::get_client(Some(login.token), Some(true))
     }
 
     /// Creates a new unauthenticated client for (captcha, register, login, e.g.).
@@ -205,23 +235,27 @@ impl Client {
     /// [error]: enum.Error.html
     /// [builder]: https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.build
     fn new_unauth() -> Result<Self, Error> {
-        Client::get_client(None)
+        Client::get_client(None, None)
     }
 
     /// Consume and logout the authenticated client.
     ///
     /// Attention: this assumes that the client has been authenticated using credentials.
-    /// Trying to logout a client created from a token will fail.
+    /// Trying to logout a client created from a token will return Error::CannotLogout.
     ///
     /// # Errors
     ///
     /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
+    /// - [`Error::CannotLogout`][error] if the client was not created from credentials
     /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
     /// - [`Error::Reqwest`][error] if the whole request failed
     ///
     /// [error]: ../enum.Error.html
     pub async fn logout(self) -> Result<(), Error> {
+        // No logout for clients no logged in
+        if !self.logged_in {
+            return Err(Error::CannotLogout);
+        }
         let response = self
             .post("/auth/logout/", None)
             .await?;
@@ -359,7 +393,7 @@ impl Client {
             .client
             .get(format!("{}{}", API_URL, endpoint))
             .build()
-            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+            .map_err(Error::Reqwest)?;
         self.process_request(request).await
     }
 
@@ -371,7 +405,7 @@ impl Client {
             .header("Content-Type", "application/json")
             .body(body.unwrap_or_default()) // body is optional, so we send empty string when None
             .build()
-            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+            .map_err(Error::Reqwest)?;
         self.process_request(request).await
     }
 
@@ -383,7 +417,7 @@ impl Client {
             .header("Content-Type", "application/json")
             .body(body)
             .build()
-            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+            .map_err(Error::Reqwest)?;
         self.process_request(request).await
     }
 
@@ -393,7 +427,7 @@ impl Client {
             .client
             .delete(format!("{}{}", API_URL, endpoint).as_str())
             .build()
-            .map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+            .map_err(Error::Reqwest)?;
         self.process_request(request).await
     }
 }

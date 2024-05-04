@@ -39,7 +39,7 @@ pub struct Token {
 pub struct TokenPolicy {
     pub id: String,
     pub domain: Option<String>,
-    pub subname: Option<bool>,
+    pub subname: Option<String>,
     pub r#type: Option<String>,
     pub perm_write: bool,
 }
@@ -288,6 +288,60 @@ impl<'a> TokenClient<'a> {
             )
             .await?;
         match response.status() {
+            StatusCode::CREATED => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Patches a given token policy.
+    ///
+    /// # Errors
+    ///
+    /// This method fails with:
+    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::token::Toke
+    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
+    /// - [`Error::Reqwest`][error] if the whole request failed
+    ///
+    /// [error]: ../enum.Error.html
+    pub async fn patch_policy(
+        &self,
+        token_id: &str,
+        policy_id: &str,
+        domain: Option<String>,
+        subname: Option<String>,
+        r#type: Option<String>,
+        perm_write: Option<bool>,
+    ) -> Result<TokenPolicy, Error> {
+        // Construct payload
+        let mut payload_map = Map::new();
+        if let Some(domain) = domain {
+            payload_map.insert("domain".to_string(), Value::String(domain));
+        }
+        if let Some(subname) = subname {
+            payload_map.insert("subname".to_string(), Value::String(subname));
+        }
+        if let Some(r#type) = r#type {
+            payload_map.insert("type".to_string(), Value::String(r#type));
+        }
+        if let Some(perm_write) = perm_write {
+            payload_map.insert("perm_write".to_string(), Value::Bool(perm_write));
+        }
+        let payload = serde_json::to_string(&payload_map).unwrap();
+        let response = self
+            .client
+            .patch(
+                format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str(),
+                payload,
+            )
+            .await?;
+        match response.status() {
             StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
@@ -370,17 +424,13 @@ impl<'a> TokenClient<'a> {
         &self,
         token_id: &str,
         policy_id: &str,
-    ) -> Result<TokenPolicy, Error> {
+    ) -> Result<(), Error> {
         let response = self
             .client
             .delete(format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str())
             .await?;
         match response.status() {
-            StatusCode::OK => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
+            StatusCode::NO_CONTENT => Ok(()),
             _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),

@@ -1,4 +1,4 @@
-use desec_api::account::{self, AccountInformation};
+use desec_api::account::AccountInformation;
 use desec_api::Client;
 use std::env::var;
 use tokio::sync::OnceCell;
@@ -34,21 +34,20 @@ async fn get_config() -> &'static TestConfiguration {
 }
 
 #[tokio::test]
-async fn test_login_logout() {
+async fn login_logout() {
     let email = var("DESEC_EMAIL").unwrap();
     let password = var("DESEC_PASSWORD").unwrap();
-    let login = account::login(&email, &password)
+    let logged_in_client = Client::new_from_credentials(&email, &password)
         .await
         .expect("Login should not fail");
-    assert!(!login.token.is_empty());
-    let logged_in_client = Client::new(login.token).expect("Client should be buildable");
-    logged_in_client.logout().await.expect("Logout should not fail");
-    // logged_in_client has been moved into logout
+    logged_in_client.logout()
+        .await
+        .expect("Logout should not fail");
 }
 
 #[allow(clippy::needless_return)] // tokio_shared_rt somehow messes around
 #[tokio_shared_rt::test(shared)]
-async fn test_account_info() {
+async fn account_info() {
     let config = get_config().await;
     let account_info = config.client.account().get_account_info().await;
     let account_info = account_info.expect("account_info should be ok");
@@ -59,7 +58,7 @@ async fn test_account_info() {
 
 #[allow(clippy::needless_return)] // tokio_shared_rt somehow messes around
 #[tokio_shared_rt::test(shared)]
-async fn test_zonefile() {
+async fn zonefile() {
     let config = get_config().await;
     let zonefile = config.client.domain().get_zonefile(&config.domain).await.expect("Zonefile should be exportable");
     assert!(zonefile.contains("exported from desec.io"), "Zonefile does not contain expected string");
@@ -67,7 +66,7 @@ async fn test_zonefile() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_captcha() {
+async fn captcha() {
     let res = desec_api::account::get_captcha().await;
     assert!(res.is_ok());
     let captcha = res.unwrap();
@@ -76,7 +75,7 @@ async fn test_captcha() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_missing_resssources() {
+async fn missing_resssources() {
     let config = get_config().await;
 
     // Check missing rrset
@@ -104,7 +103,7 @@ async fn test_missing_resssources() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_rrset() {
+async fn rrset() {
     let config = get_config().await;
     // Random subname
     let subname = format!("test-{}", Uuid::new_v4());
@@ -163,7 +162,7 @@ async fn test_rrset() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_retrieve_token() {
+async fn retrieve_token() {
     let config = get_config().await;
     let token = config.client.token().get(
         var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str()
@@ -173,7 +172,7 @@ async fn test_retrieve_token() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_patch_token() {
+async fn patch_token() {
     let config = get_config().await;
     let token_new_name = format!("token-{}", Uuid::new_v4());
     config.client.token().patch(
@@ -188,7 +187,7 @@ async fn test_patch_token() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_create_and_delete_token() {
+async fn create_and_delete_token() {
     let config = get_config().await;
     let token = config.client.token().create(
         Some(format!("integrationtest-{}", Uuid::new_v4())),
@@ -211,7 +210,7 @@ async fn test_create_and_delete_token() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
-async fn test_token_policy() {
+async fn token_policy() {
     let config = get_config().await;
 
     // Create token

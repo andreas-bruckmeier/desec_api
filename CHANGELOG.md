@@ -1,5 +1,20 @@
 # Changelog
 
+## desec_api 0.3.0 (2024-05-04)
+
+### Added
+
+- A lot of issing API endpoints
+- Documentation
+
+### Changed
+
+- The way the internal HTTP client is used
+- Centralized error handling
+
+### Fixed
+
+
 ## desec_api 0.2.0 (2024-04-25)
 
 ### Added

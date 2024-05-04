@@ -18,33 +18,16 @@ impl<'a> Client {
 pub struct ResourceRecordSet {
     pub created: String,
     pub domain: String,
-    pub subname: String,
+    /// Subname is optional, so you can select the [zone apex][link]
+    ///
+    /// [link]: https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
+    pub subname: Option<String>,
     pub name: String,
     #[serde(rename = "type")]
     pub rrset_type: String,
-    pub records: Vec<String>,
     pub ttl: u64,
+    pub records: Vec<String>,
     pub touched: String,
-}
-
-// Helper to generate a rate limit error from the response
-async fn throttling_error(response: reqwest::Response) -> Error {
-    match response.headers().get("retry-after") {
-        Some(header) => match header.to_str() {
-            Ok(header) => Error::RateLimited(
-                header.to_string(),
-                response.text().await.unwrap_or_default(),
-            ),
-            Err(_) => Error::ApiError(
-                response.status().into(),
-                "Request got throttled with invalid retry-after header".to_string(),
-            ),
-        },
-        None => Error::ApiError(
-            response.status().into(),
-            "Request got throttled without retry-header".to_string(),
-        ),
-    }
 }
 
 impl<'a> RrsetClient<'a> {
@@ -52,84 +35,119 @@ impl<'a> RrsetClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::ApiError`][error] In case the operation cannot be performed with the given parameters.
-    ///   This can happen, for instance, when there is a conflicting RRset with the same name and type,
-    ///   when not all required fields were provided correctly (such as, when the type value was not provided in uppercase),
-    ///   or when the record content is semantically invalid (e.g. when you provide an unknown record type,
-    ///   or an A value that is not an IPv4 address).
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     /// [rrset]: ./struct.ResourceRecordSet.html
     pub async fn create_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
-        records: &Vec<String>,
         ttl: u64,
+        records: &Vec<String>,
     ) -> Result<ResourceRecordSet, Error> {
         let rrset = json!({
-            "subname": subname,
+            "subname": subname.unwrap_or("@"),
             "type": rrset_type,
             "ttl": ttl,
             "records": records
         });
-        match self
+        let response = self
             .client
             .post(
                 format!("/domains/{domain}/rrsets/").as_str(),
-                serde_json::to_string(&rrset)
-                    .map_err(|error| Error::Serialize(error.to_string()))?,
+                Some(
+                    serde_json::to_string(&rrset)
+                        .map_err(|error| Error::Serialize(error.to_string()))?,
+                ),
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::CREATED => {
+            .await?;
+        match response.status() {
+            StatusCode::CREATED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
-    /// Retrieves a list of all RRSets that you own in the given domain.
+    /// Retrieves all RRSets in the given zone.
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of desec_api::rrset::ResourceRecordSet objects
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_rrsets(&self, domain: &str) -> Result<Vec<ResourceRecordSet>, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
+        }
+    }
+
+    /// Retrieves all RRSets in the given zone filtered by a given type.
+    ///
+    /// # Errors
+    ///
+    /// see [General errors][general_errors]
+    ///
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
+    pub async fn get_rrsets_by_type(&self, domain: &str, r#type: &str) -> Result<Vec<ResourceRecordSet>, Error> {
+        let response = self
+            .client
+            .get(format!("/domains/{domain}/rrsets/?type={}", r#type).as_str())
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
+        }
+    }
+
+    /// Retrieves all RRSets in the given zone filtered by a given subname.
+    ///
+    /// # Errors
+    ///
+    /// see [General errors][general_errors]
+    ///
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
+    pub async fn get_rrsets_by_subname(&self, domain: &str, subname: &str) -> Result<Vec<ResourceRecordSet>, Error> {
+        let response = self
+            .client
+            .get(format!("/domains/{domain}/rrsets/?subname={subname}").as_str())
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
+                let response_text = response.text().await.map_err(Error::Reqwest)?;
+                serde_json::from_str(&response_text)
+                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
+            }
+            _ => Err(Error::UnexpectedStatusCode(
+                response.status().into(),
+                response.text().await.unwrap_or_default(),
+            )),
         }
     }
 
@@ -137,38 +155,31 @@ impl<'a> RrsetClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::NotFound`][error] if the RRSet does not exist or does not belong to you
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
     ) -> Result<ResourceRecordSet, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
-
-        match self
+        let subname = subname.unwrap_or("@");
+        let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -176,21 +187,16 @@ impl<'a> RrsetClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::Serialize`][error] if the given RRSet cannot be serialized (is this even possible?)
-    /// - [`Error::RateLimited`][error] if you hit a rate limit by making to many requests
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn patch_rrset_from(
         &self,
         rrset: &ResourceRecordSet,
     ) -> Result<Option<ResourceRecordSet>, Error> {
         self.patch_rrset(
             &rrset.domain,
-            &rrset.subname,
+            rrset.subname.as_deref(),
             &rrset.rrset_type,
             &rrset.records,
             rrset.ttl,
@@ -202,31 +208,21 @@ impl<'a> RrsetClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::Serialize`][error] if the given RRSet cannot be serialized (is this even possible?)
-    /// - [`Error::RateLimited`][error] if you hit a rate limit by making to many requests
-    /// - [`Error::ApiError`][error] In case the operation cannot be performed with the given parameters.
-    ///   This can happen, for instance, when there is a conflicting RRset with the same name and type,
-    ///   when not all required fields were provided correctly (such as, when the type value was not provided in uppercase),
-    ///   or when the record content is semantically invalid (e.g. when you provide an unknown record type,
-    ///   or an A value that is not an IPv4 address).
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn patch_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
         records: &[String],
         ttl: u64,
     ) -> Result<Option<ResourceRecordSet>, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
+        let subname = subname.unwrap_or("@");
 
-        match self
+        let response = self
             .client
             .patch(
                 format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str(),
@@ -236,71 +232,48 @@ impl<'a> RrsetClient<'a> {
                 }))
                 .map_err(|error| Error::Serialize(error.to_string()))?,
             )
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-
-            // An exception to this rule is when an empty array is provided as the records field,
-            // in which case the RRset is deleted and the return code is 204 No Content (cf. Deleting an RRset).
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(None),
-
-            // In case the operation cannot be performed with the given parameters,
-            // the API returns 400 Bad Request. This can happen, for instance, when there is
-            // a conflicting RRset with the same name and type, when not all required fields
-            // were provided correctly (such as, when the type value was not provided in uppercase),
-            // or when the record content is semantically invalid
-            // (e.g. when you provide an unknown record type, or an A value that is not an IPv4 address).
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            // Rate limit / API Request Throttling
-            Ok(response) if response.status() == StatusCode::TOO_MANY_REQUESTS => {
-                Err(throttling_error(response).await)
             }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            StatusCode::NO_CONTENT => Ok(None),
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
-    /// Deletes the specified RRSet.
+    /// Deletes the RRSet specified by the given domain, subname and type.
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete_rrset(
         &self,
         domain: &str,
-        subname: &str,
+        subname: Option<&str>,
         rrset_type: &str,
     ) -> Result<(), Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
-        let subname = if subname.is_empty() { "@" } else { subname };
-
-        match self
+        let subname = subname.unwrap_or("@");
+        let response = self
             .client
             .delete(format!("/domains/{domain}/rrsets/{subname}/{rrset_type}/").as_str())
-            .await
-        {
+            .await?;
+        match response.status() {
             // Upon success or if the RRset did not exist in the first place,
             // the response status code is 204 No Content.
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            StatusCode::NO_CONTENT => Ok(()),
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 }

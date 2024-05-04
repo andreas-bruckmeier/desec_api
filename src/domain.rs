@@ -46,35 +46,25 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into desec_api::rrset::ResourceRecordSet
-    /// - [`Error::ApiError`][error] This can happen when the request payload was malformed, or when the requested
-    ///   domain name is unavailable (because it conflicts with another user’s zone) or invalid (due to policy, see below).
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
+    /// [domain]: ../domain/struct.Domain.html
     pub async fn create_domain(&self, domain: &str) -> Result<Domain, Error> {
-        match self
+        let response = self
             .client
-            .post("/domains/", format!("{{\"name\": \"{domain}\"}}"))
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::CREATED => {
+            .post("/domains/", Some(format!("{{\"name\": \"{domain}\"}}")))
+            .await?;
+        match response.status() {
+            StatusCode::CREATED => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
             }
-            Ok(response) if response.status() == StatusCode::BAD_REQUEST => Err(Error::ApiError(
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -82,25 +72,21 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of [`desec_api::domain::Domain`][domain] objects
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_domains(&self) -> Result<Vec<Domain>, Error> {
-        match self.client.get("/domains/").await {
-            Ok(response) if response.status() == StatusCode::OK => {
+        let response = self.client.get("/domains/").await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -108,31 +94,24 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::NotFound`][error] if the RRSet does not exist or does not belong to you
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a [`desec_api::domain::Domain`][domain] object
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_domain(&self, domain: &str) -> Result<Domain, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) if response.status() == StatusCode::NOT_FOUND => Err(Error::NotFound),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -140,24 +119,20 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn delete_domain(&self, domain: &str) -> Result<(), Error> {
-        match self
+        let response = self
             .client
             .delete(format!("/domains/{domain}/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::NO_CONTENT => Ok(()),
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            .await?;
+        match response.status() {
+            StatusCode::NO_CONTENT => Ok(()),
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -172,29 +147,24 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::InvalidAPIResponse`][error] if the response cannot be parsed into a vector of [`desec_api::domain::Domain`][domain] objects
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_owning_domain(&self, qname: &str) -> Result<Vec<Domain>, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/?owns_qname={qname}").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
+            .await?;
+        match response.status() {
+            StatusCode::OK => {
                 let response_text = response.text().await.map_err(Error::Reqwest)?;
                 serde_json::from_str(&response_text)
                     .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            },
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            }
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 
@@ -202,26 +172,20 @@ impl<'a> DomainClient<'a> {
     ///
     /// # Errors
     ///
-    /// This method fails with:
-    /// - [`Error::UnexpectedStatusCode`][error] if the API responds with an undocumented status code
-    /// - [`Error::Reqwest`][error] if the whole request failed
+    /// see [General errors][general_errors]
     ///
-    /// [error]: ../enum.Error.html
-    /// [domain]: ./struct.Domain.html
+    /// [general_errors]: ../index.html#general-errors-for-all-clients
     pub async fn get_zonefile(&self, domain: &str) -> Result<String, Error> {
-        match self
+        let response = self
             .client
             .get(format!("/domains/{domain}/zonefile/").as_str())
-            .await
-        {
-            Ok(response) if response.status() == StatusCode::OK => {
-                response.text().await.map_err(Error::Reqwest)
-            }
-            Ok(response) => Err(Error::UnexpectedStatusCode(
+            .await?;
+        match response.status() {
+            StatusCode::OK => response.text().await.map_err(Error::Reqwest),
+            _ => Err(Error::UnexpectedStatusCode(
                 response.status().into(),
                 response.text().await.unwrap_or_default(),
             )),
-            Err(error) => Err(Error::Reqwest(error)),
         }
     }
 }

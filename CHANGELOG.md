@@ -1,5 +1,16 @@
 # Changelog
 
+## desec_api 0.3.2 (2024-05-06)
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Lowered the mistakenly published MSRV of 1.77.2 down to 1.63.0 (lowering MSRV should not be a breaking change)
+
+
 ## desec_api 0.3.1 (2024-05-06)
 
 ### Added

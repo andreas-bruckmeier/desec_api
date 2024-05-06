@@ -48,7 +48,7 @@ impl<'a> RrsetClient<'a> {
         records: &Vec<String>,
     ) -> Result<ResourceRecordSet, Error> {
         let rrset = json!({
-            "subname": subname.unwrap_or("@"),
+            "subname": subname.unwrap_or_default(),
             "type": rrset_type,
             "ttl": ttl,
             "records": records
@@ -221,7 +221,6 @@ impl<'a> RrsetClient<'a> {
     ) -> Result<Option<ResourceRecordSet>, Error> {
         // https://desec.readthedocs.io/en/latest/dns/rrsets.html#accessing-the-zone-apex
         let subname = subname.unwrap_or("@");
-
         let response = self
             .client
             .patch(

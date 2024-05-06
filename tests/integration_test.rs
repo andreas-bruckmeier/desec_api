@@ -162,6 +162,48 @@ async fn rrset() {
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
+async fn rrset_at_apex() {
+    let config = get_config().await;
+    let records = vec!("\"This is a test\"".to_string());
+    let rrset = config
+        .client
+        .rrset()
+        .create_rrset(&config.domain, None, "TXT", 3600, &records)
+        .await;
+
+    assert!(rrset.is_ok());
+    let rrset = rrset.unwrap();
+    assert_eq!(rrset.domain.clone(), config.domain);
+    assert_eq!(rrset.records, records);
+
+    // Respect rate limit
+    sleep(Duration::from_millis(1000)).await;
+
+    let rrset = config
+        .client
+        .rrset()
+        .get_rrset(&config.domain, None, "TXT")
+        .await;
+
+    assert!(rrset.is_ok());
+    let rrset = rrset.unwrap();
+
+    assert_eq!(rrset.domain.clone(), config.domain);
+    assert_eq!(rrset.records.clone(), records);
+
+    // Respect rate limit
+    sleep(Duration::from_millis(1000)).await;
+
+    let res = config
+        .client
+        .rrset()
+        .delete_rrset(&config.domain, None, "TXT")
+        .await;
+    res.expect("should be ok");
+}
+
+#[allow(clippy::needless_return)]
+#[tokio_shared_rt::test(shared)]
 async fn retrieve_token() {
     let config = get_config().await;
     let token = config.client.token().get(

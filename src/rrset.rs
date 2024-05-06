@@ -33,6 +33,8 @@ pub struct ResourceRecordSet {
 impl<'a> RrsetClient<'a> {
     /// Creates a new RRSet and returns the newly created [`ResourceRecordSet`][rrset].
     ///
+    /// For the creation of a rrset of type TXT (and maybe others), the values in the records vector need to be wrapped in douple-quotes!
+    ///
     /// # Errors
     ///
     /// see [General errors][general_errors]

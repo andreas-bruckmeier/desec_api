@@ -110,7 +110,11 @@ impl<'a> RrsetClient<'a> {
     /// see [General errors][general_errors]
     ///
     /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn get_rrsets_by_type(&self, domain: &str, r#type: &str) -> Result<Vec<ResourceRecordSet>, Error> {
+    pub async fn get_rrsets_by_type(
+        &self,
+        domain: &str,
+        r#type: &str,
+    ) -> Result<Vec<ResourceRecordSet>, Error> {
         let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/?type={}", r#type).as_str())
@@ -135,7 +139,11 @@ impl<'a> RrsetClient<'a> {
     /// see [General errors][general_errors]
     ///
     /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn get_rrsets_by_subname(&self, domain: &str, subname: &str) -> Result<Vec<ResourceRecordSet>, Error> {
+    pub async fn get_rrsets_by_subname(
+        &self,
+        domain: &str,
+        subname: &str,
+    ) -> Result<Vec<ResourceRecordSet>, Error> {
         let response = self
             .client
             .get(format!("/domains/{domain}/rrsets/?subname={subname}").as_str())

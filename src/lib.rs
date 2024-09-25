@@ -30,7 +30,7 @@
 //!   * Retrieving a Specific RRset
 //!   * Modifying an RRset
 //!   * Deleting an RRset
-//! 
+//!
 //! * Manage Tokens
 //!   * Create a token
 //!   * Modify a token
@@ -111,11 +111,11 @@
 //!
 //! [error]: enum.Error.html
 
+use const_format::concatcp;
 use log::debug;
 use reqwest::{header, Response, StatusCode};
 use thiserror::Error;
 use tokio::time::{sleep, Duration};
-use const_format::concatcp;
 
 pub mod account;
 pub mod domain;
@@ -169,7 +169,7 @@ pub struct Client {
     /// Maximum number of retries
     max_retries: usize,
     /// Whether this client has been logged in before
-    logged_in: bool
+    logged_in: bool,
 }
 
 impl Client {
@@ -192,7 +192,7 @@ impl Client {
             retry: true,
             max_wait_retry: 60,
             max_retries: 3,
-            logged_in: logged_in.unwrap_or_default()
+            logged_in: logged_in.unwrap_or_default(),
         })
     }
 
@@ -256,9 +256,7 @@ impl Client {
         if !self.logged_in {
             return Err(Error::CannotLogout);
         }
-        let response = self
-            .post("/auth/logout/", None)
-            .await?;
+        let response = self.post("/auth/logout/", None).await?;
         match response.status() {
             StatusCode::NO_CONTENT => Ok(()),
             _ => Err(Error::UnexpectedStatusCode(
@@ -270,32 +268,32 @@ impl Client {
 
     /// Sets whether retries are enabled.
     pub fn set_retry(&mut self, retry: bool) {
-       self.retry = retry;
+        self.retry = retry;
     }
 
     /// Returns whether retries are enabled.
     pub fn get_retry(&self) -> &bool {
-       &self.retry
+        &self.retry
     }
 
     /// Sets the maximum wait time for a single retry
     pub fn set_max_wait_retry(&mut self, max_wait_retry: u64) {
-       self.max_wait_retry = max_wait_retry;
+        self.max_wait_retry = max_wait_retry;
     }
 
     /// Returns the maximum wait time for a single retry
     pub fn get_max_wait_retry(&self) -> &u64 {
-       &self.max_wait_retry
+        &self.max_wait_retry
     }
 
     /// Sets the maximum number of retries
     pub fn set_max_retries(&mut self, max_retries: usize) {
-       self.max_retries = max_retries;
+        self.max_retries = max_retries;
     }
 
     /// Returns the maximum number of retries
     pub fn get_max_retries(&self) -> &usize {
-       &self.max_retries
+        &self.max_retries
     }
 
     /// Sends the request and processes the response.

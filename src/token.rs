@@ -326,11 +326,7 @@ impl<'a> TokenClient<'a> {
     /// see [General errors][general_errors]
     ///
     /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn delete_policy(
-        &self,
-        token_id: &str,
-        policy_id: &str,
-    ) -> Result<(), Error> {
+    pub async fn delete_policy(&self, token_id: &str, policy_id: &str) -> Result<(), Error> {
         let response = self
             .client
             .delete(format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str())

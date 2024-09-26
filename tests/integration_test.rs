@@ -19,16 +19,13 @@ static CONFIG: OnceCell<TestConfiguration> = OnceCell::const_new();
 async fn get_config() -> &'static TestConfiguration {
     CONFIG
         .get_or_init(|| async {
-            let token = var("DESEC_TOKEN").expect("Envvar DESEC_TOKEN should be set with valid token");
-            let mut client = Client::new(token)
-                .expect("Client should be buildable");
+            let token =
+                var("DESEC_TOKEN").expect("Envvar DESEC_TOKEN should be set with valid token");
+            let mut client = Client::new(token).expect("Client should be buildable");
             client.set_max_wait_retry(60);
             client.set_max_retries(3);
             let domain = var("DESEC_DOMAIN").unwrap();
-            TestConfiguration {
-                client,
-                domain,
-            }
+            TestConfiguration { client, domain }
         })
         .await
 }
@@ -40,7 +37,8 @@ async fn login_logout() {
     let logged_in_client = Client::new_from_credentials(&email, &password)
         .await
         .expect("Login should not fail");
-    logged_in_client.logout()
+    logged_in_client
+        .logout()
         .await
         .expect("Logout should not fail");
 }
@@ -60,8 +58,16 @@ async fn account_info() {
 #[tokio_shared_rt::test(shared)]
 async fn zonefile() {
     let config = get_config().await;
-    let zonefile = config.client.domain().get_zonefile(&config.domain).await.expect("Zonefile should be exportable");
-    assert!(zonefile.contains("exported from desec.io"), "Zonefile does not contain expected string");
+    let zonefile = config
+        .client
+        .domain()
+        .get_zonefile(&config.domain)
+        .await
+        .expect("Zonefile should be exportable");
+    assert!(
+        zonefile.contains("exported from desec.io"),
+        "Zonefile does not contain expected string"
+    );
 }
 
 #[allow(clippy::needless_return)]
@@ -164,7 +170,7 @@ async fn rrset() {
 #[tokio_shared_rt::test(shared)]
 async fn rrset_at_apex() {
     let config = get_config().await;
-    let records = vec!("\"This is a test\"".to_string());
+    let records = vec!["\"This is a test\"".to_string()];
     let rrset = config
         .client
         .rrset()
@@ -206,9 +212,15 @@ async fn rrset_at_apex() {
 #[tokio_shared_rt::test(shared)]
 async fn retrieve_token() {
     let config = get_config().await;
-    let token = config.client.token().get(
-        var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str()
-    ).await;
+    let token = config
+        .client
+        .token()
+        .get(
+            var("DESEC_TOKEN_ID")
+                .expect("Envvar DESEC_TOKEN_ID should be set with valid token")
+                .as_str(),
+        )
+        .await;
     token.expect("token should be ok");
 }
 
@@ -217,36 +229,45 @@ async fn retrieve_token() {
 async fn patch_token() {
     let config = get_config().await;
     let token_new_name = format!("token-{}", Uuid::new_v4());
-    config.client.token().patch(
-        var("DESEC_TOKEN_ID").expect("Envvar DESEC_TOKEN_ID should be set with valid token").as_str(),
-        Some(token_new_name.clone()),
-        None,
-        None,
-        None,
-        None
-    ).await.expect("Token should be patchable");
+    config
+        .client
+        .token()
+        .patch(
+            var("DESEC_TOKEN_ID")
+                .expect("Envvar DESEC_TOKEN_ID should be set with valid token")
+                .as_str(),
+            Some(token_new_name.clone()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("Token should be patchable");
 }
 
 #[allow(clippy::needless_return)]
 #[tokio_shared_rt::test(shared)]
 async fn create_and_delete_token() {
     let config = get_config().await;
-    let token = config.client.token().create(
-        Some(format!("integrationtest-{}", Uuid::new_v4())),
-        None,
-        None,
-        None,
-        None
-    ).await;
+    let token = config
+        .client
+        .token()
+        .create(
+            Some(format!("integrationtest-{}", Uuid::new_v4())),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
     let token = token.expect("token should be ok");
 
     // Respect rate limit
     sleep(Duration::from_millis(1000)).await;
 
     // Delete token
-    let token = config.client.token().delete(
-        token.id.as_str()
-    ).await;
+    let token = config.client.token().delete(token.id.as_str()).await;
     token.expect("token delete should be ok");
 }
 
@@ -256,34 +277,37 @@ async fn token_policy() {
     let config = get_config().await;
 
     // Create token
-    let token = config.client.token().create(
-        Some(format!("integrationtest-{}", Uuid::new_v4())),
-        None,
-        None,
-        None,
-        None
-    ).await;
+    let token = config
+        .client
+        .token()
+        .create(
+            Some(format!("integrationtest-{}", Uuid::new_v4())),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
     let token = token.expect("token should be ok");
 
     sleep(Duration::from_millis(1000)).await;
-    
+
     // Create policy
-    let policy = config.client.token().create_policy(
-        &token.id,
-        None,
-        None,
-        None,
-        None
-    ).await;
+    let policy = config
+        .client
+        .token()
+        .create_policy(&token.id, None, None, None, None)
+        .await;
     let policy = policy.expect("token policy should be ok");
 
     sleep(Duration::from_millis(1000)).await;
 
     // Get
-    let policy_get = config.client.token().get_policy(
-        &token.id,
-        &policy.id,
-    ).await;
+    let policy_get = config
+        .client
+        .token()
+        .get_policy(&token.id, &policy.id)
+        .await;
     let policy_get = policy_get.expect("Fetch of token policy should be ok");
     assert_eq!(policy_get.id, policy.id);
     assert_eq!(policy_get.domain, policy.domain);
@@ -294,18 +318,16 @@ async fn token_policy() {
     sleep(Duration::from_millis(1000)).await;
 
     // Delete policy
-    let res = config.client.token().delete_policy(
-        &token.id,
-        &policy.id,
-    ).await;
+    let res = config
+        .client
+        .token()
+        .delete_policy(&token.id, &policy.id)
+        .await;
     res.expect("Deletion of token policy should be ok");
 
     sleep(Duration::from_millis(1000)).await;
 
     // Delete token
-    let res = config.client.token().delete(
-        &token.id
-    ).await;
+    let res = config.client.token().delete(&token.id).await;
     res.expect("Deletion of token should be ok");
-
 }

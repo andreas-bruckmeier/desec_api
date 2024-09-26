@@ -60,29 +60,13 @@ impl<'a> TokenClient<'a> {
         max_age: Option<String>,
         max_unused_period: Option<String>,
     ) -> Result<Token, Error> {
-        // Construct payload
-        let mut payload_map = Map::new();
-        if let Some(name) = name {
-            payload_map.insert("name".to_string(), Value::String(name));
-        }
-        if let Some(allowed_subnets) = allowed_subnets {
-            payload_map.insert("allowed_subnets".to_string(), Value::from(allowed_subnets));
-        }
-        if let Some(perm_manage_tokens) = perm_manage_tokens {
-            payload_map.insert(
-                "perm_manage_tokens".to_string(),
-                Value::Bool(perm_manage_tokens),
-            );
-        }
-        if let Some(max_age) = max_age {
-            payload_map.insert("max_age".to_string(), Value::String(max_age));
-        }
-        if let Some(max_unused_period) = max_unused_period {
-            payload_map.insert(
-                "max_unused_period".to_string(),
-                Value::String(max_unused_period),
-            );
-        }
+        let payload_map = construct_token_payload(
+            name,
+            allowed_subnets,
+            perm_manage_tokens,
+            max_age,
+            max_unused_period,
+        );
         let payload = Some(serde_json::to_string(&payload_map).unwrap());
         // Send create token request
         let response = self.client.post("/auth/tokens/", payload).await?;
@@ -185,29 +169,13 @@ impl<'a> TokenClient<'a> {
         max_age: Option<String>,
         max_unused_period: Option<String>,
     ) -> Result<Token, Error> {
-        // Construct payload
-        let mut payload_map = Map::new();
-        if let Some(name) = name {
-            payload_map.insert("name".to_string(), Value::String(name));
-        }
-        if let Some(allowed_subnets) = allowed_subnets {
-            payload_map.insert("allowed_subnets".to_string(), Value::from(allowed_subnets));
-        }
-        if let Some(perm_manage_tokens) = perm_manage_tokens {
-            payload_map.insert(
-                "perm_manage_tokens".to_string(),
-                Value::Bool(perm_manage_tokens),
-            );
-        }
-        if let Some(max_age) = max_age {
-            payload_map.insert("max_age".to_string(), Value::String(max_age));
-        }
-        if let Some(max_unused_period) = max_unused_period {
-            payload_map.insert(
-                "max_unused_period".to_string(),
-                Value::String(max_unused_period),
-            );
-        }
+        let payload_map = construct_token_payload(
+            name,
+            allowed_subnets,
+            perm_manage_tokens,
+            max_age,
+            max_unused_period,
+        );
         let payload = serde_json::to_string(&payload_map).unwrap();
         let response = self
             .client
@@ -241,27 +209,7 @@ impl<'a> TokenClient<'a> {
         r#type: Option<String>,
         perm_write: Option<bool>,
     ) -> Result<TokenPolicy, Error> {
-        // Construct payload
-        let mut payload_map = Map::new();
-        if let Some(domain) = domain {
-            payload_map.insert("domain".to_string(), Value::String(domain));
-        } else {
-            payload_map.insert("domain".to_string(), Value::Null);
-        }
-        if let Some(subname) = subname {
-            payload_map.insert("subname".to_string(), Value::String(subname));
-        } else {
-            payload_map.insert("subname".to_string(), Value::Null);
-        }
-        if let Some(r#type) = r#type {
-            payload_map.insert("type".to_string(), Value::String(r#type));
-        } else {
-            payload_map.insert("type".to_string(), Value::Null);
-        }
-        payload_map.insert(
-            "bool".to_string(),
-            Value::Bool(perm_write.unwrap_or_default()),
-        );
+        let payload_map = construct_policy_payload(domain, subname, r#type, perm_write);
         let payload = Some(serde_json::to_string(&payload_map).unwrap());
         let response = self
             .client
@@ -299,20 +247,7 @@ impl<'a> TokenClient<'a> {
         r#type: Option<String>,
         perm_write: Option<bool>,
     ) -> Result<TokenPolicy, Error> {
-        // Construct payload
-        let mut payload_map = Map::new();
-        if let Some(domain) = domain {
-            payload_map.insert("domain".to_string(), Value::String(domain));
-        }
-        if let Some(subname) = subname {
-            payload_map.insert("subname".to_string(), Value::String(subname));
-        }
-        if let Some(r#type) = r#type {
-            payload_map.insert("type".to_string(), Value::String(r#type));
-        }
-        if let Some(perm_write) = perm_write {
-            payload_map.insert("perm_write".to_string(), Value::Bool(perm_write));
-        }
+        let payload_map = construct_policy_payload(domain, subname, r#type, perm_write);
         let payload = serde_json::to_string(&payload_map).unwrap();
         let response = self
             .client
@@ -391,11 +326,7 @@ impl<'a> TokenClient<'a> {
     /// see [General errors][general_errors]
     ///
     /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn delete_policy(
-        &self,
-        token_id: &str,
-        policy_id: &str,
-    ) -> Result<(), Error> {
+    pub async fn delete_policy(&self, token_id: &str, policy_id: &str) -> Result<(), Error> {
         let response = self
             .client
             .delete(format!("/auth/tokens/{token_id}/policies/rrsets/{policy_id}/").as_str())
@@ -408,4 +339,58 @@ impl<'a> TokenClient<'a> {
             )),
         }
     }
+}
+
+// Construct token policy payload for CREATE and PATCH
+fn construct_policy_payload(
+    domain: Option<String>,
+    subname: Option<String>,
+    r#type: Option<String>,
+    perm_write: Option<bool>,
+) -> Map<String, Value> {
+    let mut payload_map = Map::new();
+    let domain = domain.map_or(Value::Null, Value::String);
+    let subname = subname.map_or(Value::Null, Value::String);
+    let r#type = r#type.map_or(Value::Null, Value::String);
+    payload_map.insert("domain".to_string(), domain);
+    payload_map.insert("subname".to_string(), subname);
+    payload_map.insert("type".to_string(), r#type);
+    payload_map.insert(
+        "perm_write".to_string(),
+        Value::Bool(perm_write.unwrap_or_default()),
+    );
+    payload_map
+}
+
+// Construct token payload for CREATE and PATCH
+fn construct_token_payload(
+    name: Option<String>,
+    allowed_subnets: Option<Vec<String>>,
+    perm_manage_tokens: Option<bool>,
+    max_age: Option<String>,
+    max_unused_period: Option<String>,
+) -> Map<String, Value> {
+    let mut payload_map = Map::new();
+    if let Some(name) = name {
+        payload_map.insert("name".to_string(), Value::String(name));
+    }
+    if let Some(allowed_subnets) = allowed_subnets {
+        payload_map.insert("allowed_subnets".to_string(), Value::from(allowed_subnets));
+    }
+    if let Some(perm_manage_tokens) = perm_manage_tokens {
+        payload_map.insert(
+            "perm_manage_tokens".to_string(),
+            Value::Bool(perm_manage_tokens),
+        );
+    }
+    if let Some(max_age) = max_age {
+        payload_map.insert("max_age".to_string(), Value::String(max_age));
+    }
+    if let Some(max_unused_period) = max_unused_period {
+        payload_map.insert(
+            "max_unused_period".to_string(),
+            Value::String(max_unused_period),
+        );
+    }
+    payload_map
 }

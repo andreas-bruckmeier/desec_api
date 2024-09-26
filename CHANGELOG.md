@@ -1,5 +1,21 @@
 # Changelog
 
+## desec_api 0.3.3 (2024-09-26)
+
+Contributed by @hw0lff
+
+### Added
+
+### Changed
+
+- Refactored payload generation for token and policy create/patch
+- cargo fmt
+
+### Fixed
+
+- Fixed typo preventing tokens with write permission
+
+
 ## desec_api 0.3.2 (2024-05-06)
 
 ### Added

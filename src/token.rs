@@ -19,7 +19,7 @@ impl<'a> Client {
 /// Representation of a deSEC [`token`][reference].
 ///
 /// [reference]: https://desec.readthedocs.io/en/latest/auth/tokens.html#token-field-reference
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub created: String,
     pub id: String,
@@ -35,7 +35,7 @@ pub struct Token {
 /// Representation of a deSEC [`token policy`][reference].
 ///
 /// [reference]: https://desec.readthedocs.io/en/latest/auth/tokens.html#token-policy-field-reference
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct TokenPolicy {
     pub id: String,
     pub domain: Option<String>,

@@ -1,5 +1,18 @@
 # Changelog
 
+## desec_api 0.3.4 (2024-11-24)
+
+Contributed by @hw0lff
+
+### Added
+
+- token: Add derive for Clone, PartialEq and Eq traits to Token, TokenPolicy
+
+### Changed
+
+### Fixed
+
+
 ## desec_api 0.3.3 (2024-09-26)
 
 Contributed by @hw0lff

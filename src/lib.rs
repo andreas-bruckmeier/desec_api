@@ -136,7 +136,9 @@ pub enum Error {
     #[error("An error occurred during the request")]
     Reqwest(reqwest::Error),
     #[error("You hit a rate limit and need to wait {0} seconds. Additional Info: {1}")]
-    RateLimited(String, String),
+    RateLimited(u64, String),
+    #[error("You hit a rate limit and need to wait. Additional Info: {0}")]
+    RateLimitedWithoutRetry(String),
     #[error("The maximum count of retries has been reached")]
     RateLimitedMaxRetriesReached,
     #[error("The requested resource does not exist or you are not the owner")]
@@ -318,46 +320,17 @@ impl Client {
                 )
                 .await;
             match result {
-                // Retry logic
                 Ok(response) => match response.status() {
                     StatusCode::OK
                     | StatusCode::CREATED
                     | StatusCode::NO_CONTENT
                     | StatusCode::ACCEPTED => return Ok(response),
                     StatusCode::TOO_MANY_REQUESTS => {
-                        // Early abort if we are not interested in retries
-                        if !self.retry {
-                            debug!("Request has been throttled, but retries are disabled");
-                            return Err(Error::ApiError(
-                                response.status().as_u16(),
-                                response.text().await.unwrap_or_default(),
-                            ));
-                        }
-                        match response.headers().get("retry-after") {
-                            Some(header) => match header.to_str() {
-                                Ok(header) => {
-                                    let time_to_wait: u64 = header.parse().map_err(|_| Error::ApiError(response.status().as_u16(), "foo".to_string()))?;
-                                    if time_to_wait > self.max_wait_retry {
-                                        debug!("Wait time for retry {} exceeds max accepted wait time per retry {}", time_to_wait, self.max_wait_retry);
-                                        return Err(Error::ApiError(
-                                            response.status().into(),
-                                            format!("Wait time for retry {} exceeds max accepted wait time per retry {}", time_to_wait, self.max_wait_retry),
-                                        ));
-                                    }
-                                    debug!("Request has been throttled, we wait {} seconds", time_to_wait);
-                                    sleep(Duration::from_secs(time_to_wait)).await;
-                                    retries += 1;
-                                },
-                                Err(_) => return Err(Error::ApiError(
-                                    response.status().into(),
-                                    "Request got throttled with retry-after header containing von ASCII chars".to_string(),
-                                )),
-                            },
-                            None => return Err(Error::ApiError(
-                                response.status().into(),
-                                "Request got throttled without retry-header".to_string(),
-                            ))
-                        }
+                        let ttw =
+                            parse_time_to_wait(response, self.max_wait_retry, self.retry).await?;
+                        debug!("Request has been throttled, we wait {} seconds", ttw);
+                        sleep(Duration::from_secs(ttw)).await;
+                        retries += 1;
                     }
                     StatusCode::UNAUTHORIZED => {
                         return Err(Error::Unauthorized(
@@ -428,4 +401,50 @@ impl Client {
             .map_err(Error::Reqwest)?;
         self.process_request(request).await
     }
+}
+
+// Parsing the time we have to wait till next retry.
+// Error out if we cannot parse, retry is disabled, or accepted max wait time will be exceeded.
+async fn parse_time_to_wait(
+    response: Response,
+    max_wait_retry: u64,
+    should_retry: bool,
+) -> Result<u64, Error> {
+    let time_to_wait = match response.headers().get("retry-after") {
+        Some(header) => match header.to_str() {
+            Ok(header) => header.parse().map_err(|_| {
+                Error::RateLimitedWithoutRetry(format!(
+                    "Request was throttled and cannot parse retry after {:?}",
+                    header
+                ))
+            })?,
+            Err(_) => return Err(Error::RateLimitedWithoutRetry(
+                "Request got throttled with retry-after header containing non-visible ASCII chars"
+                    .to_string(),
+            )),
+        },
+        None => {
+            return Err(Error::RateLimitedWithoutRetry(
+                "Request got throttled without retry-after header".to_string(),
+            ))
+        }
+    };
+    // Abort if we are not interested in retries
+    if !should_retry {
+        let msg = String::from("Request has been throttled, but retries are disabled");
+        debug!("{}", msg);
+        return Err(Error::RateLimited(
+            time_to_wait,
+            response.text().await.unwrap_or(msg),
+        ));
+    }
+    if time_to_wait > max_wait_retry {
+        let msg = format!(
+            "Wait time for retry {} exceeds max accepted wait time per retry {}",
+            time_to_wait, max_wait_retry
+        );
+        debug!("{}", msg);
+        return Err(Error::RateLimited(time_to_wait, msg));
+    }
+    Ok(time_to_wait)
 }

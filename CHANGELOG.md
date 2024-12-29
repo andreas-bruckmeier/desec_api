@@ -1,5 +1,23 @@
 # Changelog
 
+## desec_api 0.4.0 (2024-12-29)
+
+Contributed by @hw0lff
+
+### Added
+
+- Introduce new error variant RateLimitedWithoutRetry that gets returned if the time_to_wait cannot be parsed. Before, rustfmt didn't format the code in the loop anymore because it was too deeply nested.
+
+### Changed
+
+- Move the parsing and retry logic into a new function.
+- Use the appropriate RateLimited error variant instead of ApiError.
+- Return time_to_wait if retries are disabled.
+
+### Fixed
+
+
+
 ## desec_api 0.3.4 (2024-11-24)
 
 Contributed by @hw0lff

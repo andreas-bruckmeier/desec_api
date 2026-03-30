@@ -60,3 +60,22 @@ Running on open-source software and supported by [SSE](https://securesystems.de/
 ## License
 
 See [LICENSE-MIT](LICENSE-MIT) for details.
+
+## Testing
+
+Integrations tests depend on setting the following environment variables
+
+* `DESEC_TOKEN`
+* `DESEC_DOMAIN`
+* `DESEC_EMAIL`
+* `DESEC_PASSWORD`
+* `DESEC_ACCOUNT_INFO`
+* `DESEC_TOKEN_ID`
+
+You will need to create a [desec](https://desec.io) account (recommended that you do not use an
+account used in production!). Create a domain in that account, `domain.test` for example, and then
+create an API token within that domain. Make sure to enable `Can manage tokens` under the advanced
+settings for the new token.
+
+You can then retrieve the token ID and account info from the API, for example using any CLI client.
+Note that account info is a JSON string.

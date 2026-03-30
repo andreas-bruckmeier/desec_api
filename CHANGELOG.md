@@ -4,6 +4,8 @@
 
 ### Added
 
+- Document integration testing required environment variables in README
+
 ### Changed
 
 - Loosened strict dependency on patch versions

@@ -1,6 +1,6 @@
 [package]
 name = "desec_api"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "Client library for the deSEC DNS API"
 readme = "README.md"
@@ -10,16 +10,16 @@ repository = "https://github.com/andreas-bruckmeier/desec_api"
 rust-version = "1.63.0"
 
 [dependencies]
-thiserror = "1.0"
-serde = { version = "1.0.144", features = ["derive"] }
-serde_json = "1.0.85"
-reqwest = { version = "0.11.26", default-features = false, features = ["rustls-tls", "json"] }
-tokio = { version = "1.36.0", default-features = false, features = ["macros", "rt-multi-thread"] }
-log = "0.4.21"
-const_format = "0.2.32"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
+tokio = { version = "1", default-features = false, features = ["macros", "rt-multi-thread"] }
+log = "0.4"
+const_format = "0.2"
 
 [dev-dependencies]
-tokio = { version = "1.36.0", default-features = false, features = ["macros", "rt-multi-thread"] }
-tokio-shared-rt = "0.1.0"
-ureq = "2.9.7"
-uuid = { version = "1.8.0", features = ["v4"] }
+tokio = { version = "1", default-features = false, features = ["macros", "rt-multi-thread"] }
+tokio-shared-rt = "0.1"
+ureq = "3.3"
+uuid = { version = "1.23", features = ["v4"] }

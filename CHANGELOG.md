@@ -1,5 +1,27 @@
 # Changelog
 
+## desec_api 0.4.1 (2026-03-30)
+
+### Added
+
+- Document integration testing required environment variables in README
+
+### Changed
+
+- Loosened strict dependency on patch versions
+- Updated dependency 'thiserror' from 1.0 to 2
+- Updated dependency 'serde' from 1.0.144 to 1
+- Updated dependency 'serde_json' from 1.0.85 to 1
+- Updated dependency 'reqwest' from 0.11.26 to 0.13
+- Updated dependency 'tokio' from 1.36 to 1
+- Updated dependency 'log' from 0.4.21 to 0.4
+- Updated dependency 'const_format' from 0.2.32 to 0.2
+- Updated dependency 'tokio-shared-rt' from 0.1.0 to 0.1
+- Updated dependency 'ureq' from 2.9.7 to 3.3
+- Updated dependency 'uuid' from 1.8.0 to 1.23
+
+### Fixed
+
 ## desec_api 0.4.0 (2024-12-29)
 
 Contributed by @hw0lff

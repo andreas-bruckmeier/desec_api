@@ -1,5 +1,18 @@
 # Changelog
 
+## desec_api 0.5.0 (2026-04-18)
+
+### Added
+
+
+### Changed
+
+- Moved password reset request and confirmation out of the authenticated client. An unauth client is sufficient.
+
+### Fixed
+
+# Changelog
+
 ## desec_api 0.4.1 (2026-03-30)
 
 ### Added

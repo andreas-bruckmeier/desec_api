@@ -124,80 +124,6 @@ impl<'a> AccountClient<'a> {
         }
     }
 
-    /// Initiates a password reset using your email address and a captcha solution.
-    ///
-    /// # Errors
-    ///
-    /// see [General errors][general_errors]
-    ///
-    /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn request_password_reset(
-        &self,
-        email: &str,
-        captcha_id: &str,
-        captcha_solution: &str,
-    ) -> Result<AccountInformation, Error> {
-        let response = self
-            .client
-            .post(
-                "/auth/account/reset-password/",
-                Some(
-                    json!({
-                      "email": email,
-                      "captcha": {
-                        "id": captcha_id,
-                        "solution": captcha_solution
-                      }
-                    })
-                    .to_string(),
-                ),
-            )
-            .await?;
-        match response.status() {
-            StatusCode::ACCEPTED => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            _ => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-        }
-    }
-
-    /// Confirms a password reset using the code sent via email.
-    ///
-    /// # Errors
-    ///
-    /// see [General errors][general_errors]
-    ///
-    /// [general_errors]: ../index.html#general-errors-for-all-clients
-    pub async fn confirm_password_reset(
-        &self,
-        new_password: &str,
-        code: &str,
-    ) -> Result<AccountInformation, Error> {
-        let response = self
-            .client
-            .post(
-                format!("/auth/account/reset-password/{code}").as_str(),
-                Some(json!({"new_password": new_password}).to_string()),
-            )
-            .await?;
-        match response.status() {
-            StatusCode::ACCEPTED => {
-                let response_text = response.text().await.map_err(Error::Reqwest)?;
-                serde_json::from_str(&response_text)
-                    .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
-            }
-            _ => Err(Error::UnexpectedStatusCode(
-                response.status().into(),
-                response.text().await.unwrap_or_default(),
-            )),
-        }
-    }
-
     /// Updates your accounts email address.
     ///
     /// # Errors
@@ -377,6 +303,76 @@ pub async fn login(email: &str, password: &str) -> Result<Login, Error> {
             let response_text = response.text().await.map_err(Error::Reqwest)?;
             Ok(serde_json::from_str(&response_text)
                 .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))?)
+        }
+        _ => Err(Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )),
+    }
+}
+
+/// Initiates a password reset using your email address and a captcha solution.
+///
+/// # Errors
+///
+/// see [General errors][general_errors]
+///
+/// [general_errors]: ../index.html#general-errors-for-all-clients
+pub async fn request_password_reset(
+    email: &str,
+    captcha_id: &str,
+    captcha_solution: &str,
+) -> Result<(), Error> {
+    let client =
+        Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    let response = client
+        .post(
+            "/auth/account/reset-password/",
+            Some(
+                json!({
+                  "email": email,
+                  "captcha": {
+                    "id": captcha_id,
+                    "solution": captcha_solution
+                  }
+                })
+                .to_string(),
+            ),
+        )
+        .await?;
+    match response.status() {
+        StatusCode::ACCEPTED =>  Ok(()),
+        _ => Err(Error::UnexpectedStatusCode(
+            response.status().into(),
+            response.text().await.unwrap_or_default(),
+        )),
+    }
+}
+
+/// Confirms a password reset using the code sent via email.
+///
+/// # Errors
+///
+/// see [General errors][general_errors]
+///
+/// [general_errors]: ../index.html#general-errors-for-all-clients
+pub async fn confirm_password_reset(
+    new_password: &str,
+    code: &str,
+) -> Result<AccountInformation, Error> {
+    let client =
+        Client::new_unauth().map_err(|error| Error::ReqwestClientBuilder(error.to_string()))?;
+    let response = client
+        .post(
+            format!("/auth/account/reset-password/{code}").as_str(),
+            Some(json!({"new_password": new_password}).to_string()),
+        )
+        .await?;
+    match response.status() {
+        StatusCode::ACCEPTED => {
+            let response_text = response.text().await.map_err(Error::Reqwest)?;
+            serde_json::from_str(&response_text)
+                .map_err(|error| Error::InvalidAPIResponse(error.to_string(), response_text))
         }
         _ => Err(Error::UnexpectedStatusCode(
             response.status().into(),
